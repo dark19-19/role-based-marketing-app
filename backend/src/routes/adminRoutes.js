@@ -7,10 +7,10 @@ const { requireAdmin } = require('../middleware/auth');
 router.post('/admin/login', adminController.login);
 router.post('/admin/logout', authMiddleware, requireAdmin, adminController.logout);
 
+router.post('/admin/register', adminController.registerAdmin);
 
 
-
-
+router.post('/admin/create-user', adminController.createUser);
 
 
 

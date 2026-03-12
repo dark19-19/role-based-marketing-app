@@ -80,7 +80,13 @@ class UserRepository {
 
   async findAllUsers({ limit, offset, order = 'DESC' }) {
     const validOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    const sql = `SELECT id, username, created_at FROM users WHERE is_admin = FALSE ORDER BY created_at ${validOrder} LIMIT $1 OFFSET $2`;
+    const sql = `
+SELECT u.id, u.username, r.name AS role
+FROM users u
+LEFT JOIN roles r ON r.id = u.role_id
+ORDER BY u.username ${order}
+LIMIT $1 OFFSET $2
+`;
     const { rows } = await db.query(sql, [limit, offset]);
     return rows;
   }
@@ -102,6 +108,25 @@ class UserRepository {
     const { rows } = await db.query(sql, [`%${query}%`]);
     return rows;
   }
+async findUserByUsername(username){
+    const result = await db.query(
+      `SELECT id, username FROM users WHERE username = $1 LIMIT 1`,
+      [username]
+    );
+
+    return result.rows[0];
+  }
+
+  async createUser({ id, username, passwordHash, roleId }){
+    await db.query(
+      `INSERT INTO users (id, username, password, role_id)
+       VALUES ($1,$2,$3,$4)`,
+      [id, username, passwordHash, roleId]
+    );
+  }
+
+
+  
 }
 
 module.exports = new UserRepository();

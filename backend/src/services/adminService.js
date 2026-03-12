@@ -6,6 +6,42 @@ const { buildAccessToken } = require('../helpers/JWTHelper');
 const { isString} = require('../helpers/GeneralHelper');
 
 class AdminService {
+async registerAdmin({ username,password }){
+
+  username = isString(username,'username required');
+  password = isString(password,'password required');
+
+  const existingAdmin = await adminRepo.adminExists();
+
+  if(existingAdmin){
+    throw new Error('admin already exists');
+  }
+
+  const role = await adminRepo.getRoleByName('مدير');
+
+  if(!role){
+    throw new Error('admin role not found');
+  }
+
+  const passwordHash = await bcrypt.hash(password,10);
+
+  const id = randomUUID();
+
+  await adminRepo.createAdminUser({
+    id,
+    username,
+    passwordHash,
+    roleId:role.id
+  });
+
+  return {
+    id,
+    username,
+    role:'مدير'
+  };
+
+}
+
   async login({ username, password }) {
     username = isString(username, 'username is required');
     password = isString(password, 'password is required');
@@ -51,6 +87,42 @@ class AdminService {
       }
     };
   }
+
+  async createUser({ username, password, role }) {
+
+  username = isString(username,'username required');
+  password = isString(password,'password required');
+  role = isString(role,'role required');
+
+  const existingUser = await userRepo.findUserByUsername(username);
+
+  if(existingUser){
+    throw new Error('username already exists');
+  }
+
+  const roleData = await adminRepo.getRoleByName(role);
+
+  if(!roleData){
+    throw new Error('role not found');
+  }
+
+  const passwordHash = await bcrypt.hash(password,10);
+
+  const id = randomUUID();
+
+  await userRepo.createUser({
+    id,
+    username,
+    passwordHash,
+    roleId: roleData.id
+  });
+
+  return {
+    id,
+    username,
+    role: roleData.name
+  };
+}
 
   async searchUsers({ query }) {
     const q = isString(query, 'query is required');

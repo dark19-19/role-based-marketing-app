@@ -3,6 +3,28 @@ const adminService = require('../services/adminService');
 
 
 class AdminController {
+  registerAdmin = async (req,res)=>{
+  try{
+
+    const { username,password } = req.body;
+
+    const result = await adminService.registerAdmin({
+      username,
+      password
+    });
+
+    res.status(201).json({
+      success:true,
+      data:result
+    });
+
+  }catch(err){
+    res.status(400).json({
+      success:false,
+      error:err.message
+    });
+  }
+}
   login = async (req, res) => {
     try {
       const { username, password } = req.body || {};
@@ -31,6 +53,18 @@ class AdminController {
       res.status(400).json({ success: false, error: err.message });
     }
   }
+
+  createUser = async (req,res,next)=>{
+  try{
+    const result = await adminService.createUser(req.body);
+    res.json({
+      success:true,
+      data:result
+    });
+  }catch(err){
+    next(err);
+  }
+};
 
   searchUsers = async (req, res) => {
     try {
