@@ -49,6 +49,7 @@ class RoleService {
     }
   }
 
+
   async updateRole({ id, name }) {
     try {
 

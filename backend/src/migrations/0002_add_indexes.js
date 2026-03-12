@@ -11,14 +11,19 @@ module.exports = {
       // ===============================
 
       await client.query(`
-        CREATE INDEX IF NOT EXISTS idx_users_username
-        ON users(username);
+        CREATE INDEX IF NOT EXISTS idx_users_phone
+        ON users(phone);
       `);
 
       await client.query(`
-        CREATE INDEX IF NOT EXISTS idx_users_tele_id
-        ON users(tele_id);
+        CREATE INDEX IF NOT EXISTS idx_users_role_id
+        ON users(role_id);
       `);
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_users_is_active
+        ON users(is_active);
+      `);
+
 
 
       // ===============================
@@ -313,4 +318,150 @@ module.exports = {
 
     });
   },
+
+  down: async () => {
+    await db.runInTransaction(async (client) => {
+
+      // ===============================
+      // USERS
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_users_phone;`);
+      await client.query(`DROP INDEX IF EXISTS idx_users_role_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_users_is_active;`);
+
+
+      // ===============================
+      // JWT TOKENS
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_jwt_tokens_user_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_jwt_tokens_token;`);
+      await client.query(`DROP INDEX IF EXISTS idx_jwt_tokens_revoked;`);
+
+
+      // ===============================
+      // GOVERNORATES
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_governorates_name;`);
+
+
+      // ===============================
+      // BRANCHES
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_branches_governorate_id;`);
+
+
+      // ===============================
+      // EMPLOYEES
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_employees_user_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_employees_branch_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_employees_supervisor_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_employees_supervisor_branch;`);
+
+
+      // ===============================
+      // CUSTOMERS
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_customers_user_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_customers_governorate_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_customers_referred_by;`);
+      await client.query(`DROP INDEX IF EXISTS idx_customers_first_marketer;`);
+
+
+      // ===============================
+      // CATEGORIES
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_categories_name;`);
+
+
+      // ===============================
+      // PRODUCTS
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_products_category_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_products_is_active;`);
+      await client.query(`DROP INDEX IF EXISTS idx_products_in_stock;`);
+      await client.query(`DROP INDEX IF EXISTS idx_products_category_active;`);
+
+
+      // ===============================
+      // PRODUCT IMAGES
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_product_images_product_id;`);
+
+
+      // ===============================
+      // COMMISSION SETTINGS
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_commission_settings_product_id;`);
+
+
+      // ===============================
+      // ORDERS
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_orders_customer_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_orders_marketer_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_orders_branch_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_orders_status;`);
+      await client.query(`DROP INDEX IF EXISTS idx_orders_created_at;`);
+      await client.query(`DROP INDEX IF EXISTS idx_orders_branch_status;`);
+      await client.query(`DROP INDEX IF EXISTS idx_orders_marketer_status;`);
+      await client.query(`DROP INDEX IF EXISTS idx_orders_branch_created;`);
+
+
+      // ===============================
+      // ORDER ITEMS
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_order_items_order_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_order_items_product_id;`);
+
+
+      // ===============================
+      // ORDER COMMISSIONS
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_order_commissions_order_id;`);
+
+
+      // ===============================
+      // WALLET TRANSACTIONS
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_wallet_transactions_employee_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_wallet_transactions_order_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_wallet_transactions_created_at;`);
+      await client.query(`DROP INDEX IF EXISTS idx_wallet_transactions_employee_created;`);
+
+
+      // ===============================
+      // SALARY REQUESTS
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_salary_requests_employee_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_salary_requests_status;`);
+      await client.query(`DROP INDEX IF EXISTS idx_salary_requests_employee_status;`);
+
+
+      // ===============================
+      // NOTIFICATIONS
+      // ===============================
+
+      await client.query(`DROP INDEX IF EXISTS idx_notifications_user_id;`);
+      await client.query(`DROP INDEX IF EXISTS idx_notifications_is_read;`);
+      await client.query(`DROP INDEX IF EXISTS idx_notifications_created_at;`);
+      await client.query(`DROP INDEX IF EXISTS idx_notifications_user_read;`);
+
+    });
+  }
 };

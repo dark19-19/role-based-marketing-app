@@ -30,11 +30,13 @@ module.exports = {
       await client.query(`
         CREATE TABLE IF NOT EXISTS users (
           id UUID PRIMARY KEY,
-          username TEXT NOT NULL UNIQUE,
+          phone TEXT NOT NULL UNIQUE,
           password TEXT NOT NULL,
-          tele_id TEXT NULL,
-          balance NUMERIC(18,2) NOT NULL DEFAULT 0,
-           role_id UUID REFERENCES roles(id)
+          role_id UUID REFERENCES roles(id),
+          is_active BOOLEAN DEFAULT true,
+          last_login TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP
         );
       `);
 
@@ -227,4 +229,45 @@ module.exports = {
 
     });
   },
+  down: async () => {
+    await db.runInTransaction(async (client) => {
+
+      await client.query(`DROP TABLE IF EXISTS notifications CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS salary_requests CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS wallet_transactions CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS order_commissions CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS order_items CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS orders CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS commission_settings CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS product_images CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS products CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS categories CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS customers CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS employees CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS branches CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS governorates CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS jwt_tokens CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS users CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS roles CASCADE;`);
+
+      await client.query(`DROP TABLE IF EXISTS migrations CASCADE;`);
+
+    });
+  }
 };
