@@ -1,6 +1,7 @@
 const db = require('../helpers/DBHelper');
 const { randomUUID } = require('crypto');
 const bcrypt = require('bcrypt');
+const roleSeeder = require('./rolesSeed');
 
 const PREFIX = '0000_0000_';
 const LOG_PREFIX = '🌱 [Seeder]';
@@ -32,6 +33,7 @@ async function getOrCreateMethod(name) {
 
 async function seed() {
   console.log(`${LOG_PREFIX} Starting comprehensive seed process...`);
+  await roleSeeder()
 
   try {} catch (err) {
     console.error(`${LOG_PREFIX} ❌ Seeding failed:`, err);
