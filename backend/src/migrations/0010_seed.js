@@ -10,20 +10,13 @@ module.exports = {
   up: async () => {
     await db.runInTransaction(async (client) => {
 
-      // إضافة عمود is_admin إذا لم يكن موجود
-      await client.query(`
-        ALTER TABLE users
-        ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
-      `);
-
       await roleSeeder()
       const adminRole = await roleRepo.findByName('مدير')
       const adminRoleId = adminRole.id;
 
       const admins = [
-        { phone: '1000000001', password: 'ChangeMe!1' },
-        { phone: '1000000002', password: 'ChangeMe!2' },
-        { phone: '1000000003', password: 'ChangeMe!3' },
+        {first_name: "Asef", last_name: "Tritona", phone: '0912345678', password: '12345678' },
+        {first_name: "Dev", last_name: "Hub", phone: '0932068925', password: 'admin@admin.admin' },
       ];
 
       for (const a of admins) {
@@ -32,12 +25,11 @@ module.exports = {
 
         await client.query(
             `
-          INSERT INTO users (id, phone, password, role_id, is_admin)
-          VALUES ($1, $2, $3, $4, TRUE)
-          ON CONFLICT (phone)
-          DO UPDATE SET is_admin = TRUE
+          INSERT INTO users (id,first_name, last_name, phone, password, role_id)
+          VALUES ($1,$2,$3, $4, $5, $6)
+          ON CONFLICT (phone) DO NOTHING
           `,
-            [id, a.phone, hash, adminRoleId]
+            [id,a.first_name, a.last_name, a.phone, hash, adminRoleId]
         );
       }
 

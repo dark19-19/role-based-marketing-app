@@ -1,82 +1,171 @@
 const bcrypt = require('bcrypt');
 const { randomUUID } = require('crypto');
+const authRepo = require('../data/authRepository');
 const userRepo = require('../data/userRepository');
 const { buildAccessToken } = require('../helpers/JWTHelper');
 const { isString } = require('../helpers/GeneralHelper');
 
 class AuthService {
-  // ✳️ التسجيل المربوط مع ichancy
-  async register({ username, password, tele_id, ref_code }) {
-    username = isString(username, 'username is required');
-    password = isString(password, 'password is required');
 
-    const ichancy = await registerIchancyAccount(username, password, { tele_id, ref_code });
-    if (!ichancy.success) {
-      throw new Error(ichancy.message || 'ichancy registration failed');
+  async login({phone, password}) {
+
+    try {
+
+      phone = isString(phone, 'رقم الهاتف مطلوب');
+      password = isString(password, 'كلمة المرور مطلوبة');
+
+      const user = await authRepo.findUserByPhone(phone);
+
+      if (!user) {
+        throw new Error('بيانات تسجيل الدخول غير صحيحة');
+      }
+
+      if (!user.is_active) {
+        throw new Error('الحساب غير مفعل');
+      }
+
+      const ok = await bcrypt.compare(password, user.password);
+
+      if (!ok) {
+        throw new Error('بيانات تسجيل الدخول غير صحيحة');
+      }
+
+      const token = buildAccessToken({
+        id: user.id,
+        phone: user.phone,
+        role: user.role
+      });
+
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+      await userRepo.insertJwtToken({
+        id: randomUUID(),
+        userId: user.id,
+        token,
+        expiresAt,
+        revoked: false
+      });
+
+      await authRepo.setLastLogin(phone)
+
+      return {
+        id: user.id,
+        phone: user.phone,
+        role: user.role,
+        token
+      };
+
+    } catch (err) {
+      throw err;
     }
 
-    return {
-      username: ichancy.username,
-      email: ichancy.email,
-      token: ichancy.token,
-    };
   }
 
-  async myReferral(userId) {
-    const info = await userRepo.getReferralInfoByUserId(userId);
-    if (!info) throw new Error('user not found');
+  async registerCustomer({first_name, last_name, phone, password }) {
 
-    const ref_bonus_percent = await settingsService.getBonusPercent('ref');
+    try {
+      first_name = isString(first_name, "يرجى إدخال اسم أول صحيح");
+      last_name = isString(last_name, "يرجى إدخال اسم ثاني صحيح")
+      phone = isString(phone, 'رقم الهاتف مطلوب');
+      password = isString(password, 'كلمة المرور مطلوبة');
 
-    return {
-      ref_code: info.ref_code,
-      referrals_count: Number(info.referrals_count || 0),
-      pending_balance: Number(info.pending_balance || 0),
-      ref_bonus_percent,
-    };
+      const existing = await authRepo.findUserByPhone(phone);
+
+      if (existing) {
+        throw new Error('رقم الهاتف مستخدم مسبقاً');
+      }
+
+      const role = await authRepo.findRoleByName('زبون');
+
+      if (!role) {
+        throw new Error('دور العميل غير موجود');
+      }
+
+      const hash = await bcrypt.hash(password, 10);
+      const id = randomUUID();
+
+      await authRepo.createCustomerUser({
+        id,
+        first_name,
+        last_name,
+        phone,
+        passwordHash: hash,
+        role_id: role.id
+      });
+
+      const token = buildAccessToken({
+        id,
+        phone,
+        role: 'customer'
+      });
+
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+      await userRepo.insertJwtToken({
+        id: randomUUID(),
+        userId: id,
+        token,
+        expiresAt,
+        revoked: false
+      });
+
+      return {
+        id,
+        phone,
+        role: 'customer',
+        token
+      };
+
+    } catch (err) {
+      throw err;
+    }
+
   }
+  async me(user_id) {
 
-  // ✳️ احتفظنا بالنسخة المحلية القديمة باسم registerLocal (اختياري)
-  async registerLocal({ username, password, tele_id }) {
-    username = isString(username, 'username is required');
-    password = isString(password, 'password is required');
-    const existing = await userRepo.findByUsername(username);
-    if (existing) throw new Error('username already exists');
-    const passwordHash = await bcrypt.hash(password, 10);
-    const id = randomUUID();
-    await userRepo.createUser({ id, username, passwordHash, teleId: tele_id || null });
-    const token = buildAccessToken({ id, username });
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-    await userRepo.insertJwtToken({ id: randomUUID(), userId: id, token, expiresAt, revoked: false });
-    return { id, username, token };
+    try {
+      const user = await authRepo.me(user_id)
+      if (!user) {
+        throw new Error('المستخدم غير موجود');
+      }
+
+      return {
+        id: user.id,
+        phone: user.phone,
+        role: user.role,
+        is_active: user.is_active
+      };
+
+    } catch (err) {
+      throw err;
+    }
+
   }
-
-  async login({ username, password }) {
-    username = isString(username, 'username is required');
-    password = isString(password, 'password is required');
-    const user = await userRepo.findByUsername(username);
-    if (!user) throw new Error('invalid credentials');
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) throw new Error('invalid credentials');
-    const token = buildAccessToken({ id: user.id, username: user.username });
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-    await userRepo.insertJwtToken({ id: randomUUID(), userId: user.id, token, expiresAt, revoked: false });
-    return { id: user.id, username: user.username, token };
-  }
-
-  async me(userId) {
-    const user = await userRepo.findById(userId);
-    if (!user) throw new Error('user not found');
-    return { id: user.id, username: user.username, tele_id: user.tele_id, balance: user.balance };
-  }
-
   async logout({ userId, token }) {
-    const rec = await userRepo.getTokenByValue(token);
-    if (!rec) return { success: true }; // token not tracked; treat as logged out
-    if (rec.user_id !== userId) throw new Error('invalid token for user');
-    await userRepo.revokeToken(token);
-    return { success: true };
-  }
-}
 
+    try {
+
+      const rec = await userRepo.getTokenByValue(token);
+
+      if (!rec) {
+        return { message: "تم تسجيل الخروج بنجاح" };
+      }
+
+      if (rec.user_id !== userId) {
+        throw new Error('رمز المصادقة غير صالح');
+      }
+
+      await userRepo.revokeToken(token);
+
+      return {
+        message: "تم تسجيل الخروج بنجاح"
+      };
+
+    } catch (err) {
+      throw err;
+    }
+
+  }
+
+}
 module.exports = new AuthService();

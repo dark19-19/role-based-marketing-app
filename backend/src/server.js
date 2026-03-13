@@ -2,11 +2,8 @@ const app = require('./app');
 const config = require('./config');
 
 const port = config.port || 3000;
-const seedRoles = require('./seed/rolesSeed');
 
 
-// Seed initial roles
-seedRoles();
 app.listen(port, () => {
   console.log('\n');
   console.log('██████╗   ██████╗    ███████╗  ███████╗  ██╗   ██╗ ███████╗  ██╗     ████████╗ version 1.0');

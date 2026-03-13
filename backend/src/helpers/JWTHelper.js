@@ -18,7 +18,7 @@ function decode(token) {
 }
 
 function buildAccessToken(user) {
-  return sign({ sub: user.id, username: user.username }, { expiresIn: '1h' });
+  return sign({ sub: user.id, username: user.username, role: user.role }, { expiresIn: '1h' });
 }
 
 module.exports = { sign, verify, decode, buildAccessToken };
