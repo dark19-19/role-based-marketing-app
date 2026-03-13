@@ -1,51 +1,23 @@
-const db = require('../helpers/DBHelper');
+function requireRole(roles = []) {
 
-function requireRole(roleName) {
+  return (req, res, next) => {
 
-  return async (req,res,next)=>{
-
-    try{
-
-      const sql = `
-        SELECT r.name
-        FROM users u
-        JOIN roles r ON r.id = u.role_id
-        WHERE u.id=$1
-      `;
-
-      const { rows } = await db.query(sql,[req.user.id]);
-
-      if(!rows[0]){
-        return res.status(403).json({
-          success:false,
-          message:"غير مصرح لك بتنفيذ هذه العملية"
-        });
-      }
-
-      if(rows[0].name !== roleName){
-        return res.status(403).json({
-          success:false,
-          message:"ليس لديك صلاحية الوصول"
-        });
-      }
-
-      next();
-
-    }catch(err){
+    if (!req.user) {
+      return res.status(401).json({
+        success:false,
+        message:"غير مصرح"
+      });
+    }
+    if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success:false,
-        message:"حدث خطأ أثناء التحقق من الصلاحيات"
+        message:"ليس لديك صلاحية"
       });
     }
 
+    next();
   }
 
 }
 
-module.exports = {
-  requireAdminRole: requireRole('مدير'),
-  requireBranchManagerRole: requireRole('مدير فرع'),
-  requireGeneralSupervisorRole: requireRole('مشرف عام'),
-  requireSupervisorRole: requireRole('مشرف'),
-  requireMarketerRole: requireRole('مسوق')
-};
+module.exports = requireRole;

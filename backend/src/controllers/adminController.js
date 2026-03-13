@@ -1,15 +1,15 @@
 const adminService = require('../services/adminService');
 
-
-
 class AdminController {
   registerAdmin = async (req,res)=>{
   try{
 
-    const { username,password } = req.body;
+    const { first_name, last_name, phone ,password } = req.body;
 
     const result = await adminService.registerAdmin({
-      username,
+      first_name,
+      last_name,
+      phone,
       password
     });
 
@@ -25,24 +25,6 @@ class AdminController {
     });
   }
 }
-  login = async (req, res) => {
-    try {
-      const { username, password } = req.body || {};
-      const result = await adminService.login({ username, password });
-      res.status(200).json({ success: true, data: result });
-    } catch (err) {
-      res.status(400).json({ success: false, error: err.message });
-    }
-  }
-
-  logout = async (req, res) => {
-    try {
-      const result = await adminService.logout({ userId: req.user.id, token: req.user.token });
-      res.status(200).json({ success: true, data: result });
-    } catch (err) {
-      res.status(400).json({ success: false, error: err.message });
-    }
-  }
 
   listUsers = async (req, res) => {
     try {

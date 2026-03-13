@@ -1,47 +1,6 @@
 const db = require('../helpers/DBHelper');
 
 class UserRepository {
-  async createUser({ id, username, passwordHash, teleId = null, refCode = null, referredBy = null }) {
-    // ✅ التصحيح:
-    // قمنا بتغيير $1 داخل دالة REPLACE إلى $8
-    // وسنقوم بتمرير الـ id مرة أخرى في نهاية المصفوفة
-    const sql = `
-      INSERT INTO users (id, username, password, tele_id, balance, ref_code, referred_by, ref_pending_balance)
-      VALUES ($1, $2, $3, $4, $5, 
-        COALESCE($6, UPPER(SUBSTRING(REPLACE($8::text,'-','') FROM 1 FOR 10))),
-        $7,
-        0
-      )
-    `;
-    
-    // لاحظ: أضفنا id مرة أخرى في نهاية المصفوفة ليقابل $8
-    await db.query(sql, [id, username, passwordHash, teleId, 0, refCode, referredBy, id]);
-  }
-
-  async findByRefCode(refCode) {
-    const sql = `SELECT id, username, ref_code FROM users WHERE ref_code = $1`;
-    const { rows } = await db.query(sql, [refCode]);
-    return rows[0] || null;
-  }
-
-  async getReferralInfoByUserId(userId) {
-    const sql = `
-      SELECT
-        u.ref_code,
-        COALESCE(u.ref_pending_balance, 0) AS pending_balance,
-        (SELECT COUNT(*)::int FROM users x WHERE x.referred_by = u.id) AS referrals_count
-      FROM users u
-      WHERE u.id = $1
-    `;
-    const { rows } = await db.query(sql, [userId]);
-    return rows[0] || null;
-  }
-
-  async findByUsername(username) {
-    const sql = `SELECT id, username, password, tele_id, balance FROM users WHERE username = $1`;
-    const { rows } = await db.query(sql, [username]);
-    return rows[0] || null;
-  }
 
   async findById(id) {
     const sql = `SELECT id, username, tele_id, balance FROM users WHERE id = $1`;
@@ -65,26 +24,14 @@ class UserRepository {
     await db.query(sql, [token]);
   }
 
-  async getReferredBy(userId) {
-    const { rows } = await db.query(`SELECT referred_by FROM users WHERE id = $1`, [userId]);
-    return rows[0] ? rows[0].referred_by : null;
-  }
-
-  async addRefPendingBalance(client, referrerId, amount) {
-    const { rows } = await client.query(
-      `UPDATE users SET ref_pending_balance = ref_pending_balance + $2 WHERE id = $1 RETURNING ref_pending_balance`,
-      [referrerId, amount]
-    );
-    return rows[0] ? Number(rows[0].ref_pending_balance) : null;
-  }
 
   async findAllUsers({ limit, offset, order = 'DESC' }) {
     const validOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const sql = `
-SELECT u.id, u.username, r.name AS role
+SELECT u.id, u.first_name, u.last_name, u.phone, r.name AS role
 FROM users u
 LEFT JOIN roles r ON r.id = u.role_id
-ORDER BY u.username ${order}
+ORDER BY u.created_at ${order}
 LIMIT $1 OFFSET $2
 `;
     const { rows } = await db.query(sql, [limit, offset]);
@@ -99,29 +46,29 @@ LIMIT $1 OFFSET $2
 
   async searchUsers(query) {
     const sql = `
-      SELECT id ,  username , balance , ref_code , referred_by,ref_pending_balance
-      FROM users 
-      WHERE username ILIKE $1 AND is_admin = FALSE
-      ORDER BY created_at DESC
+      SELECT u.id , u.first_name, u.last_name, u.phone, u.is_active, r.name 
+      FROM users u JOIN roles r ON r.id = u.role_id
+      WHERE first_name LIKE $1 OR last_name LIKE $1 OR phone LIKE $1
+      ORDER BY u.created_at DESC
       LIMIT 20
     `;
     const { rows } = await db.query(sql, [`%${query}%`]);
     return rows;
   }
-async findUserByUsername(username){
+async findUserByPhone(phone){
     const result = await db.query(
-      `SELECT id, username FROM users WHERE username = $1 LIMIT 1`,
-      [username]
+      `SELECT id, phone FROM users WHERE phone = $1 LIMIT 1`,
+      [phone]
     );
 
     return result.rows[0];
   }
 
-  async createUser({ id, username, passwordHash, roleId }){
+  async createUser({ id, first_name,last_name,phone, passwordHash, role_id }){
     await db.query(
-      `INSERT INTO users (id, username, password, role_id)
-       VALUES ($1,$2,$3,$4)`,
-      [id, username, passwordHash, roleId]
+      `INSERT INTO users (id, first_name,last_name,phone, password, role_id)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [id, first_name,last_name,phone, passwordHash, role_id]
     );
   }
 

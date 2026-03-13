@@ -4,18 +4,16 @@ const adminRepo = require('../data/adminRepository');
 const userRepo = require('../data/userRepository');
 const { buildAccessToken } = require('../helpers/JWTHelper');
 const { isString} = require('../helpers/GeneralHelper');
+const authRepo = require("../data/authRepository");
+const roleRepo = require('../data/roleRepository')
 
 class AdminService {
-async registerAdmin({ username,password }){
+async registerAdmin({first_name, last_name, phone ,password }){
 
-  username = isString(username,'username required');
-  password = isString(password,'password required');
-
-  const existingAdmin = await adminRepo.adminExists();
-
-  if(existingAdmin){
-    throw new Error('admin already exists');
-  }
+  first_name = isString(first_name, "يرجى إدخال اسم أول صحيح")
+  last_name = isString(last_name,"يرجى إدخال اسم ثاني صحيح")
+  phone = isString(phone,'رقم الهاتف مطلوب');
+  password = isString(password,'كلمة المرور مطلوبة');
 
   const role = await adminRepo.getRoleByName('مدير');
 
@@ -29,39 +27,23 @@ async registerAdmin({ username,password }){
 
   await adminRepo.createAdminUser({
     id,
-    username,
+    first_name,
+    last_name,
+    phone,
     passwordHash,
     roleId:role.id
   });
 
   return {
     id,
-    username,
+    first_name,
+    last_name,
+    phone,
     role:'مدير'
   };
 
 }
 
-  async login({ username, password }) {
-    username = isString(username, 'username is required');
-    password = isString(password, 'password is required');
-    const admin = await adminRepo.findAdminByUsername(username);
-    if (!admin) throw new Error('invalid credentials');
-    const ok = await bcrypt.compare(password, admin.password);
-    if (!ok) throw new Error('invalid credentials');
-    const token = buildAccessToken({ id: admin.id, username: admin.username });
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-    await userRepo.insertJwtToken({ id: randomUUID(), userId: admin.id, token, expiresAt, revoked: false });
-    return { id: admin.id, username: admin.username, token };
-  }
-
-  async logout({ userId, token }) {
-    const rec = await userRepo.getTokenByValue(token);
-    if (!rec) return { success: true };
-    if (rec.user_id !== userId) throw new Error('invalid token for user');
-    await userRepo.revokeToken(token);
-    return { message:"logged out successfully" };
-  }
 
   async listUsers({ page = 1, limit = 20, order = 'desc' } = {}) {
     // Use loose validation for query params as they come as strings usually
@@ -88,22 +70,24 @@ async registerAdmin({ username,password }){
     };
   }
 
-  async createUser({ username, password, role }) {
+  async createUser({first_name,last_name, phone, password, role }) {
 
-  username = isString(username,'username required');
-  password = isString(password,'password required');
-  role = isString(role,'role required');
+    first_name = isString(first_name, "يرجى إدخال اسم أول صحيح");
+    last_name = isString(last_name, "يرجى إدخال اسم ثاني صحيح")
+  phone = isString(phone,'رقم الهاتف مطلوب');
+  password = isString(password,'رقم الهاتف مطلوب');
+  role = isString(role,'الدور مطلوب');
 
-  const existingUser = await userRepo.findUserByUsername(username);
+    const existing = await authRepo.findUserByPhone(phone);
 
-  if(existingUser){
-    throw new Error('username already exists');
-  }
+    if (existing) {
+      throw new Error('رقم الهاتف مستخدم مسبقاً');
+    }
 
-  const roleData = await adminRepo.getRoleByName(role);
+  const roleData = await roleRepo.findByName(role);
 
   if(!roleData){
-    throw new Error('role not found');
+    throw new Error('دور العميل غير موجود');
   }
 
   const passwordHash = await bcrypt.hash(password,10);
@@ -112,14 +96,18 @@ async registerAdmin({ username,password }){
 
   await userRepo.createUser({
     id,
-    username,
+    first_name,
+    last_name,
+    phone,
     passwordHash,
-    roleId: roleData.id
+    role_id: roleData.id
   });
 
   return {
     id,
-    username,
+    first_name,
+    last_name,
+    phone,
     role: roleData.name
   };
 }

@@ -4,6 +4,7 @@ const authRepo = require('../data/authRepository');
 const userRepo = require('../data/userRepository');
 const { buildAccessToken } = require('../helpers/JWTHelper');
 const { isString } = require('../helpers/GeneralHelper');
+const roleRepo = require('../data/roleRepository');
 
 class AuthService {
 
@@ -40,7 +41,7 @@ class AuthService {
 
       await userRepo.insertJwtToken({
         id: randomUUID(),
-        userId: user.id,
+        user_id: user.id,
         token,
         expiresAt,
         revoked: false
@@ -75,7 +76,7 @@ class AuthService {
         throw new Error('رقم الهاتف مستخدم مسبقاً');
       }
 
-      const role = await authRepo.findRoleByName('زبون');
+      const role = await roleRepo.findByName('زبون');
 
       if (!role) {
         throw new Error('دور العميل غير موجود');
@@ -96,14 +97,14 @@ class AuthService {
       const token = buildAccessToken({
         id,
         phone,
-        role: 'customer'
+        role: 'زبون'
       });
 
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
       await userRepo.insertJwtToken({
         id: randomUUID(),
-        userId: id,
+        user_id: id,
         token,
         expiresAt,
         revoked: false
@@ -112,7 +113,7 @@ class AuthService {
       return {
         id,
         phone,
-        role: 'customer',
+        role: 'زبون',
         token
       };
 

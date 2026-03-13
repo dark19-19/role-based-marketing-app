@@ -14,7 +14,7 @@ async function authMiddleware(req, res, next) {
   const rec = await userRepo.getTokenByValue(token);
   if (rec && rec.revoked) return res.status(401).json({ error: 'Token revoked' });
 
-  req.user = { id: payload.sub, username: payload.username, token };
+  req.user = { id: payload.sub, phone: payload.phone ,role: payload.role, token };
   next();
 }
 

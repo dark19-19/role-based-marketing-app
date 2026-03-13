@@ -2,21 +2,16 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 const authMiddleware = require('../middleware/auth');
-const { requireAdmin } = require('../middleware/auth');
-
-router.post('/admin/login', adminController.login);
-router.post('/admin/logout', authMiddleware, requireAdmin, adminController.logout);
-
-router.post('/admin/register', adminController.registerAdmin);
+const roleMiddleware = require('../middleware/roleMiddleware');
 
 
-router.post('/admin/create-user', adminController.createUser);
+router.post('/admin/register',authMiddleware, roleMiddleware(['مدير']), adminController.registerAdmin);
 
+router.post('/admin/create-user', authMiddleware, roleMiddleware(['مدير']), adminController.createUser);
 
+router.get('/admin/users/search', authMiddleware,roleMiddleware(['مدير']), adminController.searchUsers);
 
-
-router.get('/admin/users/search', authMiddleware, requireAdmin, adminController.searchUsers);
-router.get('/admin/users/list', authMiddleware, requireAdmin, adminController.listUsers);
+router.get('/admin/users/list', authMiddleware,roleMiddleware(['مدير']), adminController.listUsers);
 
 
 module.exports = router;

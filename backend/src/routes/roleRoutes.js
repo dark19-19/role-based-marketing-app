@@ -4,45 +4,40 @@ const router = express.Router();
 const roleController = require('../controllers/roleController');
 const authMiddleware = require('../middleware/auth');
 const { requireAdmin } = require('../middleware/auth');
-const { requireAdminRole } = require('../middleware/roleMiddleware');
+const roleMiddleware = require('../middleware/roleMiddleware');
 
 router.post(
   '/roles',
   authMiddleware,
-  requireAdmin,
-  requireAdminRole,
+  roleMiddleware(["مدير"]),
   roleController.createRole
 );
 
 router.get(
   '/roles',
   authMiddleware,
-  requireAdmin,
-  requireAdminRole,
+    roleMiddleware(["مدير"]),
   roleController.getRoles
 );
 
 router.get(
   '/roles/:id',
   authMiddleware,
-  requireAdmin,
-  requireAdminRole,
+    roleMiddleware(["مدير"]),
   roleController.getRole
 );
 
 router.put(
   '/roles/:id',
   authMiddleware,
-  requireAdmin,
-  requireAdminRole,
+    roleMiddleware(["مدير"]),
   roleController.updateRole
 );
 
 router.delete(
   '/roles/:id',
   authMiddleware,
-  requireAdmin,
-  requireAdminRole,
+    roleMiddleware(["مدير"]),
   roleController.deleteRole
 );
 

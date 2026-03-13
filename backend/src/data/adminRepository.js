@@ -2,20 +2,6 @@ const db = require('../helpers/DBHelper');
 
 class AdminRepository {
 
-  async adminExists(){
-
-    const sql = `
-      SELECT u.id
-      FROM users u
-      JOIN roles r ON r.id = u.role_id
-      WHERE r.name='مدير'
-      LIMIT 1
-    `;
-
-    const { rows } = await db.query(sql);
-
-    return rows.length > 0;
-  }
 
   async findAdminByUsername(username){
 
@@ -63,14 +49,14 @@ class AdminRepository {
     return rows[0];
   }
 
-  async createAdminUser({ id, username, passwordHash, roleId }){
+  async createAdminUser({ id,first_name, last_name, phone, passwordHash, roleId }){
 
     const sql = `
-      INSERT INTO users(id,username,password,role_id)
-      VALUES($1,$2,$3,$4)
+      INSERT INTO users(id,first_name,last_name,phone,password,role_id)
+      VALUES($1,$2,$3,$4,$5,$6)
     `;
 
-    await db.query(sql,[id,username,passwordHash,roleId]);
+    await db.query(sql,[id,first_name,last_name,phone,passwordHash,roleId]);
   }
 
 }
