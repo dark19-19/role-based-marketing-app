@@ -107,7 +107,7 @@ module.exports = {
           name VARCHAR(255) UNIQUE NOT NULL,
           deleted_at TIMESTAMP,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
       `);
 
