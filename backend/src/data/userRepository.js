@@ -8,9 +8,9 @@ class UserRepository {
     return rows[0] || null;
   }
 
-  async insertJwtToken({ id, userId, token, expiresAt, revoked = false }) {
+  async insertJwtToken({ id, user_id, token, expiresAt, revoked = false }) {
     const sql = `INSERT INTO jwt_tokens (id, user_id, token, expires_at, revoked) VALUES ($1, $2, $3, $4, $5)`;
-    await db.query(sql, [id, userId, token, expiresAt, revoked]);
+    await db.query(sql, [id, user_id, token, expiresAt, revoked]);
   }
 
   async getTokenByValue(token) {
