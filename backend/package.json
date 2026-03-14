@@ -8,7 +8,7 @@
     "dev": "nodemon src/server.js",
     "migrate": "node src/migrate.js",
     "migrate:rollback": "node src/migrate.js -r",
-    "seed": "node src/seed/dummyData.js",
+    "seed": "node src/seed/index.js",
     "revoke-seed": "node src/seed/Deleter.js"
   },
   "keywords": [],

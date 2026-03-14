@@ -1,8 +1,7 @@
 const db = require('../helpers/DBHelper');
 const bcrypt = require('bcrypt');
 const { randomUUID } = require('crypto');
-const roleSeeder = require('../seed/rolesSeed')
-const governorateSeeder = require('../seed/governoratesSeed')
+const roleSeeder = require('../seed/rolesSeed');
 const roleRepo = require('../data/roleRepository')
 
 module.exports = {
@@ -10,9 +9,8 @@ module.exports = {
 
   up: async () => {
     await db.runInTransaction(async (client) => {
-
       await roleSeeder()
-      await governorateSeeder()
+
       const adminRole = await roleRepo.findByName('ADMIN')
       const adminRoleId = adminRole.id;
 
