@@ -15,7 +15,7 @@ async registerAdmin({first_name, last_name, phone ,password }){
   phone = isString(phone,'رقم الهاتف مطلوب');
   password = isString(password,'كلمة المرور مطلوبة');
 
-  const role = await adminRepo.getRoleByName('مدير');
+  const role = await adminRepo.getRoleByName('ADMIN');
 
   if(!role){
     throw new Error('admin role not found');
