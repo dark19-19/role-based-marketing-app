@@ -130,14 +130,21 @@ module.exports = {
       `);
 
       // product_images
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS product_images (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          product_id UUID REFERENCES products(id) ON DELETE CASCADE,
-          image_url TEXT NOT NULL,
-          sort_order INT DEFAULT 0
-        );
-      `);
+     await client.query(`
+  CREATE TABLE IF NOT EXISTS product_images (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+
+    image_url TEXT NOT NULL,
+
+    sort_order INT DEFAULT 0,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    deleted_at TIMESTAMP
+  );
+`);
 
       // commission_settings
       await client.query(`
