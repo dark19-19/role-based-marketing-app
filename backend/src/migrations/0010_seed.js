@@ -13,7 +13,7 @@ module.exports = {
 
       await roleSeeder()
       await governorateSeeder()
-      const adminRole = await roleRepo.findByName('مدير')
+      const adminRole = await roleRepo.findByName('ADMIN')
       const adminRoleId = adminRole.id;
 
       const admins = [

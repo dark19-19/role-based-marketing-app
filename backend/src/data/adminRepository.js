@@ -10,7 +10,7 @@ class AdminRepository {
       FROM users u
       JOIN roles r ON r.id = u.role_id
       WHERE u.username=$1
-      AND r.name='مدير'
+      AND r.name='ADMIN'
       LIMIT 1
     `;
 
@@ -32,7 +32,7 @@ class AdminRepository {
 
     if(!rows[0]) return false;
 
-    return rows[0].name === 'مدير';
+    return rows[0].name === 'ADMIN';
   }
 
   async getRoleByName(name){

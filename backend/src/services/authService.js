@@ -97,7 +97,7 @@ class AuthService {
       const token = buildAccessToken({
         id,
         phone,
-        role: 'زبون'
+        role: 'CUSTOMER'
       });
 
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
@@ -113,7 +113,7 @@ class AuthService {
       return {
         id,
         phone,
-        role: 'زبون',
+        role: 'CUSTOMER',
         token
       };
 

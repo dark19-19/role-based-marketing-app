@@ -8,28 +8,28 @@ const requireRole = require('../middleware/roleMiddleware');
 router.post(
     '/governorates',
     authMiddleware,
-    requireRole(['مدير']),
+    requireRole(['ADMIN']),
     governorateController.create
 );
 
 router.put(
     '/governorates/:id',
     authMiddleware,
-    requireRole(['مدير']),
+    requireRole(['ADMIN']),
     governorateController.update
 );
 
 router.delete(
     '/governorates/:id',
     authMiddleware,
-    requireRole(['مدير']),
+    requireRole(['ADMIN']),
     governorateController.delete
 );
 
 router.get(
     '/governorates',
     authMiddleware,
-    requireRole(['مدير']),
+    requireRole(['ADMIN']),
     governorateController.list
 );
 

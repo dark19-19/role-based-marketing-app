@@ -4,12 +4,12 @@ const { randomUUID } = require('crypto');
 async function seedRoles() {
 
   const roles = [
-    'مدير',
-    'مدير فرع',
-    'مشرف عام',
-    'مشرف',
-    'مسوق',
-      "زبون"
+    'ADMIN',
+    'BRANCH_MANAGER',
+    'GENERAL_SUPERVISOR',
+    'SUPERVISOR',
+    'MARKETER',
+    "CUSTOMER"
   ];
 
   try {

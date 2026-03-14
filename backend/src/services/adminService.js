@@ -39,7 +39,7 @@ async registerAdmin({first_name, last_name, phone ,password }){
     first_name,
     last_name,
     phone,
-    role:'مدير'
+    role:'ADMIN'
   };
 
 }
