@@ -5,9 +5,15 @@ const router = express.Router();
 
 const productController = require('../controllers/productController');
 
-router.post('/products',authMiddleware,roleMiddleware(["مدير"]), productController.createProduct);
+router.post('/products',
+    authMiddleware,
+    roleMiddleware(["مدير"]),
+     productController.createProduct);
 
-router.get('/products',authMiddleware,roleMiddleware(["مدير"]), productController.listProducts);
+router.get('/products',
+    authMiddleware,
+    roleMiddleware(["مدير"]),
+     productController.listProducts);
 
 router.get('/products/:id',authMiddleware,roleMiddleware(["مدير"]), productController.getProduct);
 
