@@ -6,6 +6,7 @@ const { buildAccessToken } = require('../helpers/JWTHelper');
 const { isString} = require('../helpers/GeneralHelper');
 const authRepo = require("../data/authRepository");
 const roleRepo = require('../data/roleRepository')
+const employeeService = require('./employeeService');
 
 class AdminService {
 async registerAdmin({first_name, last_name, phone ,password }){
@@ -70,7 +71,7 @@ async registerAdmin({first_name, last_name, phone ,password }){
     };
   }
 
-  async createUser({first_name,last_name, phone, password, role }) {
+  async createUser({first_name,last_name, phone, password, role, branch_id, supervisor_id }) {
 
     first_name = isString(first_name, "يرجى إدخال اسم أول صحيح");
     last_name = isString(last_name, "يرجى إدخال اسم ثاني صحيح")
@@ -102,6 +103,13 @@ async registerAdmin({first_name, last_name, phone ,password }){
     passwordHash,
     role_id: roleData.id
   });
+
+    await employeeService.createEmployee({
+      userId: id,
+      role: role,
+      branchId: branch_id,
+      supervisorId: supervisor_id
+    });
 
   return {
     id,

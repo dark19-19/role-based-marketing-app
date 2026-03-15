@@ -13,5 +13,7 @@ router.get('/admin/users/search', authMiddleware,roleMiddleware(['ADMIN']), admi
 
 router.get('/admin/users/list', authMiddleware,roleMiddleware(['ADMIN']), adminController.listUsers);
 
+router.get('/admin/employees/list', authMiddleware, roleMiddleware(['ADMIN']), adminController.listEmployees);
+
 
 module.exports = router;

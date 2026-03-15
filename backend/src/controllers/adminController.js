@@ -1,4 +1,5 @@
 const adminService = require('../services/adminService');
+const employeeService = require('../services/employeeService');
 
 class AdminController {
   registerAdmin = async (req,res)=>{
@@ -39,12 +40,16 @@ class AdminController {
   createUser = async (req,res,next)=>{
   try{
     const result = await adminService.createUser(req.body);
-    res.json({
+    res.status(200).json({
       success:true,
-      data:result
+      data:result,
+      message: "تم إنشاء الموظف بنجاح"
     });
   }catch(err){
-    next(err);
+    res.status(400).json({
+      success:false,
+      error:err.message
+    })
   }
 };
 
@@ -53,6 +58,21 @@ class AdminController {
       const { q } = req.query;
       const result = await adminService.searchUsers({ query: q });
       res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  }
+
+  listEmployees = async (req, res) => {
+    try {
+      const { page, limit } = req.query;
+
+      const result = await employeeService.listEmployees({limit, page});
+
+      res.status(200).json({
+        success: true,
+        data: result
+      })
     } catch (err) {
       res.status(400).json({ success: false, error: err.message });
     }

@@ -23,13 +23,19 @@ async function seedGovernorates() {
     try {
 
         for (const governorate of governorates) {
-
+            const gov_id = randomUUID()
             await db.query(
                 `INSERT INTO governorates (id, name)
          VALUES ($1,$2)
          ON CONFLICT (name) DO NOTHING`,
-                [randomUUID(), governorate]
+                [gov_id, governorate]
             );
+
+            await db.query(`
+                INSERT INTO branches (id, governorate_id)
+                    VALUES ($1,$2)
+                    
+            `, [randomUUID(), gov_id])
 
         }
 

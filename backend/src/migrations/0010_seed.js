@@ -31,6 +31,17 @@ module.exports = {
           `,
             [id,a.first_name, a.last_name, a.phone, hash, adminRoleId]
         );
+        await client.query(
+            `
+            INSERT INTO employees (id, user_id, branch_id, supervisor_id)
+                VALUES ($1,$2,NULL,NULL)
+                ON CONFLICT DO NOTHING
+`,
+            [
+              randomUUID(),
+              id
+            ]
+        );
       }
 
     });
