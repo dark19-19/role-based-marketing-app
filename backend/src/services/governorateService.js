@@ -1,6 +1,7 @@
 const { randomUUID } = require('crypto');
 const governorateRepo = require('../data/governorateRepository');
 const { isString, isUuid } = require('../helpers/GeneralHelper');
+const branchService = require('../services/branchService')
 
 class GovernorateService {
 
@@ -16,6 +17,7 @@ class GovernorateService {
                 id,
                 name
             });
+            await branchService.createBranch({governorate_id: id})
 
             return { id, name };
 

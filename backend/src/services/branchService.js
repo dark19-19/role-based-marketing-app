@@ -7,7 +7,6 @@ class BranchService {
     async createBranch({ governorate_id }) {
 
         try {
-
             governorate_id = isUuid(governorate_id, 'المحافظة غير صحيحة');
 
             const id = randomUUID();
