@@ -6,9 +6,11 @@ const categoryRoutes = require('./categoryRoutes');
 const governorateRoutes = require('./governorateRoutes');
 const branchRoutes = require('./branchRoutes');
 const productRoutes = require('./productRoutes');
-const productImageRoutes = require('./productImageRoutes'); 
+const productImageRoutes = require('./productImageRoutes');
+const customerRoutes = require('./customerRoutes')
 const router = express.Router();
 
+router.use('/api', customerRoutes);
 router.use('/api',categoryRoutes);
 router.use('/api', governorateRoutes);
 router.use('/api', branchRoutes);
