@@ -38,6 +38,16 @@ class CategoryRepository {
   return rows;
 }
 
+  async count() {
+
+    const { rows } = await db.query(
+        `SELECT COUNT(*)::int as count FROM categories WHERE deleted_at IS NULL`
+    );
+
+    return rows[0].count;
+
+  }
+
   async findById(id) {
     const sql = `
       SELECT id, name

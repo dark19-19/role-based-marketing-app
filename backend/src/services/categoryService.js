@@ -36,11 +36,15 @@ async listCategories({ page = 1, limit = 20 } = {}) {
     offset
   });
 
+  const total = await categoryRepo.count()
+
   return {
     categories,
     pagination: {
+      total: total,
       page: validatedPage,
-      limit: validatedLimit
+      limit: validatedLimit,
+      pages: Math.ceil(total / validatedLimit)
     }
   };
 }

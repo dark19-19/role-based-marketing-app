@@ -8,28 +8,28 @@ const { requireAdmin } = require('../middleware/auth');
 router.post(
   '/categories',
  authMiddleware,
- roleMiddleware(["مدير"]),
+ roleMiddleware(["ADMIN"]),
   categoryController.createCategory
 );
 
 router.get(
   '/categories',
  authMiddleware,
-roleMiddleware(["مدير"]),
+roleMiddleware(["ADMIN"]),
   categoryController.listCategories
 );
 
 router.put(
   '/categories/:id',
 authMiddleware,
-roleMiddleware(["مدير"]),
+roleMiddleware(["ADMIN"]),
   categoryController.updateCategory
 );
 
 router.delete(
   '/categories/:id',
  authMiddleware,
- roleMiddleware(["مدير"]),
+ roleMiddleware(["ADMIN"]),
   categoryController.deleteCategory
 );
 
