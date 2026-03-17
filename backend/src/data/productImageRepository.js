@@ -2,24 +2,24 @@ const db = require('../helpers/DBHelper');
 
 class ProductImageRepository {
 
-async addImage(productId, imageUrl, sortOrder){
+    async addImage(productId, imageUrl, sortOrder) {
 
-const sql = `
+        const sql = `
 INSERT INTO product_images
 (product_id, image_url, sort_order)
 VALUES ($1,$2,$3)
 RETURNING *
 `;
 
-const { rows } = await db.query(sql,[productId,imageUrl,sortOrder]);
+        const {rows} = await db.query(sql, [productId, imageUrl, sortOrder]);
 
-return rows[0];
+        return rows[0];
 
-}
+    }
 
-async findImagesByProduct(productId){
+    async findImagesByProduct(productId) {
 
-const sql = `
+        const sql = `
 SELECT
 id,
 image_url,
@@ -30,53 +30,53 @@ AND deleted_at IS NULL
 ORDER BY sort_order ASC
 `;
 
-const { rows } = await db.query(sql,[productId]);
+        const {rows} = await db.query(sql, [productId]);
 
-return rows;
+        return rows;
 
-}
+    }
 
-async getMaxSortOrder(productId){
+    async getMaxSortOrder(productId) {
 
-const sql = `
+        const sql = `
 SELECT COALESCE(MAX(sort_order),-1) as max
 FROM product_images
 WHERE product_id=$1
 AND deleted_at IS NULL
 `;
 
-const { rows } = await db.query(sql,[productId]);
+        const {rows} = await db.query(sql, [productId]);
 
-return rows[0].max;
+        return rows[0].max;
 
-}
+    }
 
-async updateOrder(imageId,newOrder){
+    async updateOrder(imageId, newOrder) {
 
-const sql = `
+        const sql = `
 UPDATE product_images
 SET sort_order=$1
 WHERE id=$2
 RETURNING *
 `;
 
-const { rows } = await db.query(sql,[newOrder,imageId]);
+        const {rows} = await db.query(sql, [newOrder, imageId]);
 
-return rows[0];
+        return rows[0];
 
-}
+    }
 
-async softDelete(imageId){
+    async softDelete(imageId) {
 
-const sql = `
+        const sql = `
 UPDATE product_images
 SET deleted_at=NOW()
 WHERE id=$1
 `;
 
-await db.query(sql,[imageId]);
+        await db.query(sql, [imageId]);
 
-}
+    }
 
 }
 

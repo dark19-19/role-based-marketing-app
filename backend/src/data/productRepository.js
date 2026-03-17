@@ -2,56 +2,26 @@ const db = require('../helpers/DBHelper');
 
 class ProductRepository {
 
-  async createProductWithImage(product, imageUrl) {
+  async createProductWithImage(product) {
 
     const client = await db.getClient();
 
-    try {
-
-      await client.query('BEGIN');
-
-      const productSql = `
+      const sql = `
         INSERT INTO products
         (name, description, price, quantity, category_id)
         VALUES ($1,$2,$3,$4,$5)
-        RETURNING *
+        RETURNING name, description, price, quantity, category_id
       `;
 
-      const productResult = await client.query(productSql, [
+      const {rows} = await client.query(sql, [
         product.name,
         product.description,
         product.price,
         product.quantity,
         product.category_id
       ]);
+       return rows[0] || null;
 
-      const createdProduct = productResult.rows[0];
-
-      const imageSql = `
-        INSERT INTO product_images
-        (product_id, image_url, sort_order)
-        VALUES ($1,$2,0)
-      `;
-
-      await client.query(imageSql, [
-        createdProduct.id,
-        imageUrl
-      ]);
-
-      await client.query('COMMIT');
-
-      return createdProduct;
-
-    } catch (err) {
-
-      await client.query('ROLLBACK');
-      throw err;
-
-    } finally {
-
-      client.release();
-
-    }
   }
 
   async findAll({ limit, offset }) {
@@ -91,19 +61,12 @@ class ProductRepository {
 
     const sql = `
       SELECT
-        p.*,
-        c.name AS category,
-        pi.image_url
-
+        p.name, p.description, p.price, p.quantity, p.in_stock, p.is_active, p.category_id,
+        c.name AS category
       FROM products p
 
       LEFT JOIN categories c
       ON c.id = p.category_id
-
-      LEFT JOIN product_images pi
-      ON pi.product_id = p.id
-      AND pi.sort_order = 0
-      AND pi.deleted_at IS NULL
 
       WHERE p.id = $1
       AND p.deleted_at IS NULL
@@ -112,6 +75,16 @@ class ProductRepository {
     const { rows } = await db.query(sql, [id]);
 
     return rows[0];
+  }
+
+  async count() {
+
+    const { rows } = await db.query(
+        `SELECT COUNT(*)::int as count FROM products WHERE deleted_at IS NULL`
+    );
+
+    return rows[0].count;
+
   }
 
   async updateProduct(id, data) {

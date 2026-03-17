@@ -1,4 +1,5 @@
 const productRepo = require('../data/productRepository');
+const productImageRepo = require('../data/productImageRepository');
 
 class ProductService {
 
@@ -7,7 +8,6 @@ class ProductService {
     if (!data.name) throw new Error('name required');
     if (!data.price) throw new Error('price required');
     if (!data.category_id) throw new Error('category required');
-    if (!data.image_url) throw new Error('product image required');
 
     return await productRepo.createProductWithImage(
       {
@@ -17,7 +17,6 @@ class ProductService {
         quantity: data.quantity,
         category_id: data.category_id
       },
-      data.image_url
     );
   }
 
@@ -31,6 +30,8 @@ class ProductService {
 
     const offset = (validatedPage - 1) * validatedLimit;
 
+    const total = await productRepo.count()
+
     const products = await productRepo.findAll({
       limit: validatedLimit,
       offset
@@ -39,8 +40,10 @@ class ProductService {
     return {
       products,
       pagination: {
+        total: total,
         page: validatedPage,
-        limit: validatedLimit
+        limit: validatedLimit,
+        pages: Math.ceil(total / validatedLimit)
       }
     };
   }
@@ -53,7 +56,12 @@ class ProductService {
       throw new Error('product not found');
     }
 
-    return product;
+    const images = await productImageRepo.findImagesByProduct(id)
+
+    return {
+      product: product,
+      images: images
+    }
   }
 
   async updateProduct(id, data) {
@@ -63,8 +71,18 @@ class ProductService {
     if (!product) {
       throw new Error('product not found');
     }
+    console.log(data)
+    console.log(product);
+    const validatedData = {
+      name: data.name === "" ? product.name : data.name,
+      description: data.description === "" ? product.description: data.description,
+      price: data.price === "" ? product.price: data.price,
+      quantity: data.quantity === "" ? product.quantity: data.quantity,
+      category_id: data.category_id === "" ? product.category_id : data.category_id
+    }
+    console.log(validatedData)
 
-    return await productRepo.updateProduct(id, data);
+    return await productRepo.updateProduct(id, validatedData);
   }
 
   async deleteProduct(id) {

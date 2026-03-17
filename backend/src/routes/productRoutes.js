@@ -7,18 +7,18 @@ const productController = require('../controllers/productController');
 
 router.post('/products',
     authMiddleware,
-    roleMiddleware(["مدير"]),
+    roleMiddleware(["ADMIN"]),
      productController.createProduct);
 
 router.get('/products',
     authMiddleware,
-    roleMiddleware(["مدير"]),
+    roleMiddleware(["ADMIN"]),
      productController.listProducts);
 
-router.get('/products/:id',authMiddleware,roleMiddleware(["مدير"]), productController.getProduct);
+router.get('/products/:id',authMiddleware,roleMiddleware(["ADMIN"]), productController.getProduct);
 
 router.put('/products/:id', productController.updateProduct);
 
-router.delete('/products/:id',authMiddleware,roleMiddleware(["مدير"]), productController.deleteProduct);
+router.delete('/products/:id',authMiddleware,roleMiddleware(["ADMIN"]), productController.deleteProduct);
 
 module.exports = router;
