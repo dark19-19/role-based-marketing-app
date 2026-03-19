@@ -8,6 +8,8 @@ const branchRoutes = require('./branchRoutes');
 const productRoutes = require('./productRoutes');
 const productImageRoutes = require('./productImageRoutes');
 const customerRoutes = require('./customerRoutes')
+const orderRoutes = require('./orderRoutes');
+const commissionRoutes = require('./commissionRoutes');
 const router = express.Router();
 
 router.use('/api', customerRoutes);
@@ -19,6 +21,8 @@ router.use('/api', roleRoutes);
 router.use('/api', authRoutes);
 router.use('/api', adminRoutes);
 router.use('/api', productRoutes);
+router.use('/api', orderRoutes);
+router.use('/api', commissionRoutes);
 
 
 module.exports = router;

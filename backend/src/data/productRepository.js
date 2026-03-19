@@ -125,6 +125,40 @@ class ProductRepository {
     await db.query(sql, [id]);
   }
 
+  async findByIds(ids) {
+
+    const { rows } = await db.query(
+        `
+    SELECT id, price
+    FROM products
+    WHERE id = ANY($1)
+    `,
+        [ids]
+    );
+
+    return rows;
+
+  }
+  async decreaseQuantity({ product_id, quantity }) {
+
+    const { rows } = await db.query(`
+      UPDATE products
+      SET quantity = quantity - $2,
+          in_stock = CASE WHEN (quantity - $2) <= 0 THEN FALSE ELSE TRUE END
+      WHERE id = $1
+        AND quantity >= $2
+      RETURNING id, quantity
+    `, [product_id, quantity]);
+
+    if (!rows.length) {
+      throw new Error('الكمية غير كافية لهذا المنتج');
+    }
+
+    return rows[0];
+
+  }
+
+
 }
 
 module.exports = new ProductRepository();

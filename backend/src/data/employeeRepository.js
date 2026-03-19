@@ -140,6 +140,36 @@ ORDER BY name
         return rows[0].count;
 
     }
+    async findById(id) {
+
+        const { rows } = await db.query(
+            `
+    SELECT *
+    FROM employees
+    WHERE id = $1
+    `,
+            [id]
+        );
+
+        return rows[0] || null;
+
+    }
+    async findAdmin() {
+
+        const { rows } = await db.query(
+            `
+    SELECT e.*
+    FROM employees e
+    JOIN users u ON u.id = e.user_id
+    JOIN roles r ON r.id = u.role_id
+    WHERE r.name = 'ADMIN'
+    LIMIT 1
+    `
+        );
+
+        return rows[0] || null;
+
+    }
 
 }
 

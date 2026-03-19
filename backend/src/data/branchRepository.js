@@ -72,6 +72,23 @@ class BranchRepository {
         return rows[0].count;
     }
 
+    async findByGovernorate(governorateId) {
+
+        const { rows } = await db.query(
+            `
+      SELECT *
+      FROM branches
+      WHERE governorate_id = $1
+      LIMIT 1
+      `,
+            [governorateId]
+        );
+
+        return rows[0] || null;
+
+    }
+
+
 }
 
 module.exports = new BranchRepository();

@@ -59,6 +59,18 @@ class AdminRepository {
     await db.query(sql,[id,first_name,last_name,phone,passwordHash,roleId]);
   }
 
+  async getCompanyAccount() {
+    const sql = `
+      SELECT u.id as id, u.phone as phone, r.name as role, e.id as emp_id
+        FROM users u INNER JOIN roles r ON r.id = u.role_id
+        INNER JOIN employees e ON e.user_id = u.id
+        WHERE u.phone = '0912345678'
+        LIMIT 1
+    `
+    const {rows} = await db.query(sql);
+    return rows[0];
+  }
+
 }
 
 module.exports = new AdminRepository();
