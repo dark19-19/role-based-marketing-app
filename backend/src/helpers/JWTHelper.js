@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 
-function sign(payload, options = { expiresIn: '1h' }) {
+function sign(payload, options = { expiresIn: '72h' }) {
   return jwt.sign(payload, config.jwtSecret, options);
 }
 
@@ -18,7 +18,7 @@ function decode(token) {
 }
 
 function buildAccessToken(user) {
-  return sign({ sub: user.id, phone: user.phone, role: user.role }, { expiresIn: '1h' });
+  return sign({ sub: user.id, phone: user.phone, role: user.role }, { expiresIn: '72h' });
 }
 
 module.exports = { sign, verify, decode, buildAccessToken };

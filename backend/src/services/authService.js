@@ -37,7 +37,7 @@ class AuthService {
         role: user.role
       });
 
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000 * 3);
 
       await userRepo.insertJwtToken({
         id: randomUUID(),
@@ -100,7 +100,7 @@ class AuthService {
         role: 'CUSTOMER'
       });
 
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000 * 3);
 
       await userRepo.insertJwtToken({
         id: randomUUID(),
