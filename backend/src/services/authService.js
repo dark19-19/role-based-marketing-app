@@ -76,7 +76,7 @@ class AuthService {
         throw new Error('رقم الهاتف مستخدم مسبقاً');
       }
 
-      const role = await roleRepo.findByName('زبون');
+      const role = await roleRepo.findByName('CUSTOMER');
 
       if (!role) {
         throw new Error('دور العميل غير موجود');
