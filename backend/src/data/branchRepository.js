@@ -88,6 +88,63 @@ class BranchRepository {
 
     }
 
+    async getBranchDetails(branchId) {
+
+        // 1. Get branch with governorate and branch manager
+        const branchRes = await db.query(`
+            SELECT
+                b.id,
+                g.name AS governorate,
+                g.id AS governorate_id,
+                bm_user.first_name || ' ' || bm_user.last_name AS manager_name,
+                bm_user.phone AS manager_phone
+            FROM branches b
+            JOIN governorates g ON g.id = b.governorate_id
+            LEFT JOIN employees bm ON bm.branch_id = b.id
+                AND bm.id IN (
+                    SELECT e.id FROM employees e
+                    JOIN users u ON u.id = e.user_id
+                    JOIN roles r ON r.id = u.role_id
+                    WHERE r.name = 'BRANCH_MANAGER'
+                    LIMIT 1
+                )
+            LEFT JOIN users bm_user ON bm_user.id = bm.user_id
+            WHERE b.id = $1
+        `, [branchId]);
+
+        if (!branchRes.rows.length) return null;
+
+        const branch = branchRes.rows[0];
+
+        // 2. Get all employees in this branch with their full name and phone
+        const employeesRes = await db.query(`
+            SELECT
+                e.id,
+                u.first_name || ' ' || u.last_name AS full_name,
+                u.phone,
+                r.name AS role
+            FROM employees e
+            JOIN users u ON u.id = e.user_id
+            JOIN roles r ON r.id = u.role_id
+            WHERE e.branch_id = $1
+            ORDER BY r.name, u.first_name
+        `, [branchId]);
+
+        // 3. Get count of orders in this branch
+        const ordersCountRes = await db.query(`
+            SELECT COUNT(*)::int AS orders_count
+            FROM orders
+            WHERE branch_id = $1
+        `, [branchId]);
+
+        return {
+            ...branch,
+            employees: employeesRes.rows,
+            orders_count: ordersCountRes.rows[0].orders_count
+        };
+
+    }
+
 
 }
 

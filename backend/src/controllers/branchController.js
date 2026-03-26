@@ -111,6 +111,31 @@ class BranchController {
 
     }
 
+    getById = async (req, res) => {
+
+        try {
+
+            const { id } = req.params;
+
+            const result = await branchService.getBranchDetails(id);
+
+            res.json({
+                success: true,
+                body: result,
+                message: "تم جلب تفاصيل الفرع"
+            });
+
+        } catch (err) {
+
+            res.status(400).json({
+                success: false,
+                message: err.message
+            });
+
+        }
+
+    }
+
 }
 
 module.exports = new BranchController();

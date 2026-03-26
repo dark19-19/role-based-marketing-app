@@ -33,4 +33,11 @@ router.get(
     branchController.list
 );
 
+router.get(
+    '/branches/:id',
+    authMiddleware,
+    requireRole(['ADMIN']),
+    branchController.getById
+);
+
 module.exports = router;

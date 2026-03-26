@@ -1,6 +1,6 @@
 const { randomUUID } = require('crypto');
 const branchRepo = require('../data/branchRepository');
-const { isString, isUuid } = require('../helpers/GeneralHelper');
+const { isUuid } = require('../helpers/GeneralHelper');
 
 class BranchService {
 
@@ -24,7 +24,7 @@ class BranchService {
 
     }
 
-    async updateBranch({ id, name, governorate_id }) {
+    async updateBranch({ id, governorate_id }) {
 
         try {
 
@@ -94,6 +94,26 @@ class BranchService {
                     pages: Math.ceil(total / limit)
                 }
             };
+
+        } catch (err) {
+            throw err;
+        }
+
+    }
+
+    async getBranchDetails(id) {
+
+        try {
+
+            id = isUuid(id, 'معرف الفرع غير صحيح');
+
+            const branch = await branchRepo.getBranchDetails(id);
+
+            if (!branch) {
+                throw new Error('الفرع غير موجود');
+            }
+
+            return branch;
 
         } catch (err) {
             throw err;
