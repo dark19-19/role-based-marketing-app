@@ -10,6 +10,7 @@ const productImageRoutes = require('./productImageRoutes');
 const customerRoutes = require('./customerRoutes')
 const orderRoutes = require('./orderRoutes');
 const commissionRoutes = require('./commissionRoutes');
+const employeeRoutes = require('./employeeRoutes');
 const router = express.Router();
 
 router.use('/api', customerRoutes);
@@ -23,6 +24,7 @@ router.use('/api', adminRoutes);
 router.use('/api', productRoutes);
 router.use('/api', orderRoutes);
 router.use('/api', commissionRoutes);
+router.use('/api', employeeRoutes);
 
 
 module.exports = router;

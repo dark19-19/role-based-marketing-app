@@ -58,7 +58,7 @@ class EmployeeRepository {
     async getEmployees({limit, offset}){
         const {rows} = await db.query(`
             SELECT
-
+    e.id,
   u.first_name || ' ' || u.last_name AS name,
   u.phone,
   u.is_active,
@@ -169,6 +169,147 @@ ORDER BY name
 
         return rows[0] || null;
 
+    }
+
+    async getEmployeeDetails(employeeId) {
+        const { rows } = await db.query(`
+            SELECT
+                e.id,
+                e.user_id,
+                e.branch_id,
+                e.supervisor_id,
+                e.created_at,
+
+                u.first_name,
+                u.last_name,
+                u.phone,
+                u.is_active,
+
+                r.name AS role,
+
+                g.name AS branch_governorate
+            FROM employees e
+            JOIN users u ON u.id = e.user_id
+            JOIN roles r ON r.id = u.role_id
+            LEFT JOIN branches b ON b.id = e.branch_id
+            LEFT JOIN governorates g ON g.id = b.governorate_id
+            WHERE e.id = $1
+        `, [employeeId]);
+
+        return rows[0] || null;
+    }
+
+    async getEmployeeSupervisor(employeeId) {
+        const { rows } = await db.query(`
+            SELECT
+                sup_e.id,
+                sup_u.first_name || ' ' || sup_u.last_name AS supervisor_name,
+                sup_r.name AS supervisor_role
+            FROM employees e
+            LEFT JOIN employees sup_e ON sup_e.id = e.supervisor_id
+            LEFT JOIN users sup_u ON sup_u.id = sup_e.user_id
+            LEFT JOIN roles sup_r ON sup_r.id = sup_u.role_id
+            WHERE e.id = $1
+        `, [employeeId]);
+
+        return rows[0] || null;
+    }
+
+    async getEmployeeGeneralSupervisor(employeeId) {
+        const { rows } = await db.query(`
+            SELECT
+                gs_e.id,
+                gs_u.first_name || ' ' || gs_u.last_name AS general_supervisor_name,
+                gs_r.name AS general_supervisor_role
+            FROM employees e
+
+            -- Get the immediate supervisor
+            LEFT JOIN employees sup_e ON sup_e.id = e.supervisor_id
+
+            -- Get supervisor role
+            LEFT JOIN users sup_u ON sup_u.id = sup_e.user_id
+            LEFT JOIN roles sup_r ON sup_r.id = sup_u.role_id
+
+            -- Get general supervisor based on role hierarchy
+            LEFT JOIN employees gs_e ON gs_e.id = CASE
+                WHEN sup_r.name = 'GENERAL_SUPERVISOR' THEN sup_e.id
+                WHEN sup_r.name = 'SUPERVISOR' THEN sup_e.supervisor_id
+                ELSE NULL
+            END
+
+            LEFT JOIN users gs_u ON gs_u.id = gs_e.user_id
+            LEFT JOIN roles gs_r ON gs_r.id = gs_u.role_id
+
+            WHERE e.id = $1
+        `, [employeeId]);
+
+        return rows[0] || null;
+    }
+
+    async getEmployeeOrders(employeeId) {
+        const { rows } = await db.query(`
+            SELECT
+                o.id,
+                o.status,
+                o.total_main_price,
+                o.total_sold_price,
+                o.created_at,
+
+                c.id AS customer_id,
+                c_u.first_name || ' ' || c_u.last_name AS customer_name,
+                c_u.phone AS customer_phone,
+
+                g.name AS governorate
+            FROM orders o
+            LEFT JOIN customers c ON c.id = o.customer_id
+            LEFT JOIN users c_u ON c_u.id = c.user_id
+            LEFT JOIN governorates g ON g.id = c.governorate_id
+            WHERE o.marketer_id = $1
+            ORDER BY o.created_at DESC
+        `, [employeeId]);
+
+        return rows;
+    }
+
+    async getEmployeeOrdersCount(employeeId) {
+        const { rows } = await db.query(`
+            SELECT COUNT(*)::int AS order_count
+            FROM orders
+            WHERE marketer_id = $1
+        `, [employeeId]);
+
+        return rows[0].order_count;
+    }
+
+    async getEmployeeCustomers(employeeId) {
+        const { rows } = await db.query(`
+            SELECT
+                c.id,
+                c.created_at,
+
+                u.first_name || ' ' || u.last_name AS customer_name,
+                u.phone,
+                u.is_active,
+
+                g.name AS governorate
+            FROM customers c
+            JOIN users u ON u.id = c.user_id
+            LEFT JOIN governorates g ON g.id = c.governorate_id
+            WHERE c.referred_by = $1
+            ORDER BY c.created_at DESC
+        `, [employeeId]);
+
+        return rows;
+    }
+
+    async getEmployeeSalarySum(employeeId) {
+        const { rows } = await db.query(`
+            SELECT COALESCE(SUM(amount), 0)::numeric AS total_salary
+            FROM wallet_transactions
+            WHERE employee_id = $1
+        `, [employeeId]);
+
+        return parseFloat(rows[0].total_salary);
     }
 
 }
