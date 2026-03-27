@@ -241,10 +241,36 @@ class OrderService {
             const page = parseInt(query.page) || 1;
             const limit = parseInt(query.limit) || 20;
 
+            // 🎯 Build filters object from query parameters
+            const filters = {};
+
+            // Time-based filter (default to 'recent' for staff, no filter for customers)
+            if (user.role !== 'CUSTOMER') {
+                filters.time_filter = query.time_filter || 'recent';
+            }
+
+            // Marketer filter (only for staff)
+            if (user.role !== 'CUSTOMER' && query.marketer_id) {
+                filters.marketer_id = query.marketer_id;
+            }
+
+            // Status filter (only for staff)
+            if (user.role !== 'CUSTOMER' && query.status) {
+                filters.status = query.status.toUpperCase();
+            }
+
+            // Branch filter (only for admin)
+            if (user.role === 'ADMIN' && query.branch_id) {
+                filters.branch_id = query.branch_id;
+            }
+
+
+
             const result = await orderRepository.listPaginated({
                 user,
                 page,
-                limit
+                limit,
+                filters
             });
 
             return {
@@ -254,6 +280,10 @@ class OrderService {
                     page,
                     limit,
                     pages: Math.ceil(result.total / limit)
+                },
+                filters: {
+                    applied: filters,
+                    available: this._getAvailableFilters(user)
                 }
             };
 
@@ -261,6 +291,48 @@ class OrderService {
             throw err;
         }
 
+    }
+
+    /**
+     * Get available filter options based on user role
+     * @param {Object} user - The authenticated user
+     * @returns {Object} Available filter options
+     */
+    _getAvailableFilters(user) {
+        const baseFilters = {
+            time_filters: [
+                { value: 'recent', label: 'Most Recent (5 per marketer)', default: true },
+                { value: 'today', label: "Today's Orders" },
+                { value: 'week', label: "This Week's Orders" },
+                { value: 'month', label: "This Month's Orders" },
+                { value: 'year', label: "This Year's Orders" },
+                { value: 'all', label: 'All Orders' }
+            ],
+            status_filters: [
+                { value: 'PENDING', label: 'Pending' },
+                { value: 'APPROVED', label: 'Approved' },
+                { value: 'REJECTED', label: 'Rejected' }
+            ]
+        };
+
+        if (user.role === 'CUSTOMER') {
+            // Customers don't get time filters or status filters
+            return {
+                time_filters: [],
+                status_filters: [],
+                marketer_filters: [],
+                branch_filters: []
+            };
+        }
+
+        // Staff members get all filters
+        const filters = {
+            ...baseFilters,
+            marketer_filters: [], // This would be populated by a separate API call
+            branch_filters: user.role === 'ADMIN' ? [] : [] // Admin gets branch filter, populated by separate API call
+        };
+
+        return filters;
     }
 
     async getById(orderId) {

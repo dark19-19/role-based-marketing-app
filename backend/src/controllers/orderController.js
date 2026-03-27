@@ -74,6 +74,67 @@ class OrderController {
 
         try {
 
+            // 🎯 Extract and validate query parameters
+            const {
+                page,
+                limit,
+                time_filter,
+                marketer_id,
+                status,
+                branch_id
+            } = req.query;
+
+            // Basic validation for numeric parameters
+            if (page && isNaN(parseInt(page))) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid page parameter"
+                });
+            }
+
+            if (limit && isNaN(parseInt(limit))) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid limit parameter"
+                });
+            }
+
+            // Validate time_filter values
+            const validTimeFilters = ['recent', 'today', 'week', 'month', 'year', 'all'];
+            if (time_filter && !validTimeFilters.includes(time_filter)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid time_filter. Must be one of: ${validTimeFilters.join(', ')}`
+                });
+            }
+
+            // Validate status values
+            const validStatuses = ['PENDING', 'APPROVED', 'REJECTED'];
+            if (status && !validStatuses.includes(status.toUpperCase())) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+                });
+            }
+
+            // Role-based parameter validation
+            if (req.user.role === 'CUSTOMER') {
+                // Customers shouldn't be able to use staff-only filters
+                if (time_filter || marketer_id || status || branch_id) {
+                    return res.status(403).json({
+                        success: false,
+                        message: "Customers cannot use advanced filters"
+                    });
+                }
+            }
+
+            if (req.user.role !== 'ADMIN' && branch_id) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Only admins can filter by branch"
+                });
+            }
+
             const result = await orderService.list(req.user, req.query);
 
             res.json({
@@ -83,6 +144,7 @@ class OrderController {
             });
 
         } catch (err) {
+            console.error('Error in order list:', err);
             res.status(400).json({
                 success: false,
                 message: err.message

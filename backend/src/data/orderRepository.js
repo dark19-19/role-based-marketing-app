@@ -51,83 +51,300 @@ class OrderRepository {
 
     }
 
-    async listPaginated({ user, page = 1, limit = 20 }) {
+    async listPaginated({ user, page = 1, limit = 20, filters = {} }) {
 
         const offset = (page - 1) * limit;
+        let whereConditions = [];
+        let params = [];
+        let index = 1;
 
-        let where = '';
-        let params = [limit, offset];
-        let index = 3;
+        // Helper function to add parameters
+        const addParam = (value) => {
+            params.push(value);
+            return `$${index++}`;
+        };
 
-        // 🎯 Role-based filtering
-        if (user.role === 'ADMIN') {
-            // no filter
-        } else if (user.role === 'BRANCH_MANAGER') {
-            where = `WHERE o.branch_id = $${index}`;
-            params.push(user.branch_id);
-            index++;
-        } else if (['MARKETER', 'SUPERVISOR', 'GENERAL_SUPERVISOR'].includes(user.role)) {
-            where = `WHERE o.marketer_id = $${index}`;
-            params.push(user.employee_id);
-            index++;
-        } else if (user.role === 'CUSTOMER') {
-            where = `WHERE o.customer_id = $${index}`;
-            params.push(user.customer_id);
-            index++;
+        // 🎯 Get employee data if not already present in user object
+        // The user token only contains id, phone, and role
+        // We need to fetch branch_id and employee_id from the employees table
+        let employeeData = null;
+        if (user.role !== 'ADMIN' && user.role !== 'CUSTOMER') {
+            const { rows } = await db.query(
+                `SELECT e.id AS employee_id, e.branch_id FROM employees e WHERE e.user_id = $1`,
+                [user.id]
+            );
+            if (rows.length > 0) {
+                employeeData = rows[0];
+            }
         }
 
-        const { rows } = await db.query(`
-      SELECT
-        (cu.first_name || ' ' || cu.last_name) AS customer_name,
-        cu.phone AS customer_phone,
-
-        (mu.first_name || ' ' || mu.last_name) AS marketer_name,
-        mu.phone AS marketer_phone,
-
-        g.name AS governorate,
-
-        o.status,
-        o.total_main_price,
-        o.total_sold_price
-
-      FROM orders o
-
-      LEFT JOIN customers c ON c.id = o.customer_id
-      LEFT JOIN users cu ON cu.id = c.user_id
-
-      LEFT JOIN employees me ON me.id = o.marketer_id
-      LEFT JOIN users mu ON mu.id = me.user_id
-
-      LEFT JOIN branches b ON b.id = o.branch_id
-      LEFT JOIN governorates g ON g.id = b.governorate_id
-
-      ${where}
-
-      ORDER BY o.created_at DESC
-      LIMIT $1 OFFSET $2
-    `, params);
-
-        const countParams = [];
-        let countWhere = '';
-
+        // 🎯 Role-based filtering with hierarchy support
         if (user.role === 'ADMIN') {
-            // nothing
+            // Admin can see all orders, but can filter by branch if specified
+            if (filters.branch_id) {
+                whereConditions.push(`o.branch_id = ${addParam(filters.branch_id)}`);
+            }
         } else if (user.role === 'BRANCH_MANAGER') {
-            countWhere = `WHERE o.branch_id = $1`;
-            countParams.push(user.branch_id);
-        } else if (['MARKETER', 'SUPERVISOR', 'GENERAL_SUPERVISOR'].includes(user.role)) {
-            countWhere = `WHERE o.marketer_id = $1`;
-            countParams.push(user.employee_id);
+            // Branch manager sees orders in their branch only
+            whereConditions.push(`o.branch_id = ${addParam(employeeData.branch_id)}`);
+        } else if (user.role === 'GENERAL_SUPERVISOR') {
+            // General supervisor sees:
+            // 1. Their own orders
+            // 2. Orders from supervisors under them
+            // 3. Orders from marketers under them and their supervisors
+            whereConditions.push(`(
+                o.marketer_id = ${addParam(employeeData.employee_id)} OR
+                o.marketer_id IN (
+                    SELECT e.id FROM employees e
+                    WHERE e.supervisor_id = ${addParam(employeeData.employee_id)}
+                ) OR
+                o.marketer_id IN (
+                    SELECT e.id FROM employees e
+                    WHERE e.supervisor_id IN (
+                        SELECT e2.id FROM employees e2
+                        WHERE e2.supervisor_id = ${addParam(employeeData.employee_id)}
+                    )
+                )
+            )`);
+        } else if (user.role === 'SUPERVISOR') {
+            // Supervisor sees:
+            // 1. Their own orders
+            // 2. Orders from marketers under them
+            whereConditions.push(`(
+                o.marketer_id = ${addParam(employeeData.employee_id)} OR
+                o.marketer_id IN (
+                    SELECT e.id FROM employees e
+                    WHERE e.supervisor_id = ${addParam(employeeData.employee_id)}
+                )
+            )`);
+        } else if (user.role === 'MARKETER') {
+            // Marketer sees only their own orders
+            whereConditions.push(`o.marketer_id = ${addParam(employeeData.employee_id)}`);
         } else if (user.role === 'CUSTOMER') {
-            countWhere = `WHERE o.customer_id = $1`;
-            countParams.push(user.customer_id);
+            // Customer sees only their own orders
+            whereConditions.push(`o.customer_id = ${addParam(user.customer_id)}`);
         }
 
-        const countRes = await db.query(`
-      SELECT COUNT(*)
-      FROM orders o
-      ${countWhere}
-    `, countParams);
+        // 🎯 Additional filters for staff (not customers)
+        if (user.role !== 'CUSTOMER') {
+            // Filter by specific marketer
+            if (filters.marketer_id) {
+                whereConditions.push(`o.marketer_id = ${addParam(filters.marketer_id)}`);
+            }
+
+            // Filter by status
+            if (filters.status) {
+                whereConditions.push(`o.status = ${addParam(filters.status)}`);
+            }
+
+            // 🎯 Time-based filters
+            if (filters.time_filter) {
+                switch (filters.time_filter) {
+                    case 'today':
+                        whereConditions.push(`DATE(o.created_at) = CURRENT_DATE`);
+                        break;
+                    case 'week':
+                        whereConditions.push(`o.created_at >= DATE_TRUNC('week', CURRENT_DATE)`);
+                        break;
+                    case 'month':
+                        whereConditions.push(`o.created_at >= DATE_TRUNC('month', CURRENT_DATE)`);
+                        break;
+                    case 'year':
+                        whereConditions.push(`o.created_at >= DATE_TRUNC('year', CURRENT_DATE)`);
+                        break;
+                    case 'all':
+                        // No additional filter
+                        break;
+                    case 'recent':
+                    default:
+                        // Most recent 5 orders by each marketer (default)
+                        // This will be handled in the main query with window functions
+                        break;
+                }
+            }
+        }
+
+        // Build WHERE clause
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+        // 🎯 Handle "recent" filter (most recent 5 orders by marketer) for non-customers
+        let mainQuery;
+        if (user.role !== 'CUSTOMER' && (!filters.time_filter || filters.time_filter === 'recent')) {
+            // Use window function to get most recent 5 orders per marketer
+            mainQuery = `
+                WITH ranked_orders AS (
+                    SELECT
+                        o.*,
+                        ROW_NUMBER() OVER (PARTITION BY o.marketer_id ORDER BY o.created_at DESC) as rn
+                    FROM orders o
+                    ${whereClause}
+                )
+                SELECT
+                    ro.id,
+                    ro.created_at,
+                    (cu.first_name || ' ' || cu.last_name) AS customer_name,
+                    cu.phone AS customer_phone,
+
+                    (mu.first_name || ' ' || mu.last_name) AS marketer_name,
+                    mu.phone AS marketer_phone,
+
+                    g.name AS governorate,
+
+                    ro.status,
+                    ro.total_main_price,
+                    ro.total_sold_price
+
+                FROM ranked_orders ro
+
+                LEFT JOIN customers c ON c.id = ro.customer_id
+                LEFT JOIN users cu ON cu.id = c.user_id
+
+                LEFT JOIN employees me ON me.id = ro.marketer_id
+                LEFT JOIN users mu ON mu.id = me.user_id
+
+                LEFT JOIN branches b ON b.id = ro.branch_id
+                LEFT JOIN governorates g ON g.id = b.governorate_id
+
+                WHERE ro.rn <= 5
+
+                ORDER BY ro.created_at DESC
+                LIMIT ${addParam(limit)} OFFSET ${addParam(offset)}
+            `;
+        } else {
+            // Regular query for customers or when specific time filter is applied
+            mainQuery = `
+                SELECT
+                    o.id,
+                    o.created_at,
+                    (cu.first_name || ' ' || cu.last_name) AS customer_name,
+                    cu.phone AS customer_phone,
+
+                    (mu.first_name || ' ' || mu.last_name) AS marketer_name,
+                    mu.phone AS marketer_phone,
+
+                    g.name AS governorate,
+
+                    o.status,
+                    o.total_main_price,
+                    o.total_sold_price
+
+                FROM orders o
+
+                LEFT JOIN customers c ON c.id = o.customer_id
+                LEFT JOIN users cu ON cu.id = c.user_id
+
+                LEFT JOIN employees me ON me.id = o.marketer_id
+                LEFT JOIN users mu ON mu.id = me.user_id
+
+                LEFT JOIN branches b ON b.id = o.branch_id
+                LEFT JOIN governorates g ON g.id = b.governorate_id
+
+                ${whereClause}
+
+                ORDER BY o.created_at DESC
+                LIMIT ${addParam(limit)} OFFSET ${addParam(offset)}
+            `;
+        }
+
+        const { rows } = await db.query(mainQuery, params);
+
+        // 🎯 Count query (similar logic but without LIMIT/OFFSET)
+        let countQuery;
+        let countParams = [];
+        let countIndex = 1;
+
+        const addCountParam = (value) => {
+            countParams.push(value);
+            return `$${countIndex++}`;
+        };
+
+        // Rebuild where conditions for count query
+        let countWhereConditions = [];
+
+        // Role-based filtering for count
+        if (user.role === 'ADMIN') {
+            if (filters.branch_id) {
+                countWhereConditions.push(`o.branch_id = ${addCountParam(filters.branch_id)}`);
+            }
+        } else if (user.role === 'BRANCH_MANAGER') {
+            countWhereConditions.push(`o.branch_id = ${addCountParam(employeeData.branch_id)}`);
+        } else if (user.role === 'GENERAL_SUPERVISOR') {
+            countWhereConditions.push(`(
+                o.marketer_id = ${addCountParam(employeeData.employee_id)} OR
+                o.marketer_id IN (
+                    SELECT e.id FROM employees e
+                    WHERE e.supervisor_id = ${addCountParam(employeeData.employee_id)}
+                ) OR
+                o.marketer_id IN (
+                    SELECT e.id FROM employees e
+                    WHERE e.supervisor_id IN (
+                        SELECT e2.id FROM employees e2
+                        WHERE e2.supervisor_id = ${addCountParam(employeeData.employee_id)}
+                    )
+                )
+            )`);
+        } else if (user.role === 'SUPERVISOR') {
+            countWhereConditions.push(`(
+                o.marketer_id = ${addCountParam(employeeData.employee_id)} OR
+                o.marketer_id IN (
+                    SELECT e.id FROM employees e
+                    WHERE e.supervisor_id = ${addCountParam(employeeData.employee_id)}
+                )
+            )`);
+        } else if (user.role === 'MARKETER') {
+            countWhereConditions.push(`o.marketer_id = ${addCountParam(employeeData.employee_id)}`);
+        } else if (user.role === 'CUSTOMER') {
+            countWhereConditions.push(`o.customer_id = ${addCountParam(user.customer_id)}`);
+        }
+
+        // Additional filters for count
+        if (user.role !== 'CUSTOMER') {
+            if (filters.marketer_id) {
+                countWhereConditions.push(`o.marketer_id = ${addCountParam(filters.marketer_id)}`);
+            }
+            if (filters.status) {
+                countWhereConditions.push(`o.status = ${addCountParam(filters.status)}`);
+            }
+            if (filters.time_filter) {
+                switch (filters.time_filter) {
+                    case 'today':
+                        countWhereConditions.push(`DATE(o.created_at) = CURRENT_DATE`);
+                        break;
+                    case 'week':
+                        countWhereConditions.push(`o.created_at >= DATE_TRUNC('week', CURRENT_DATE)`);
+                        break;
+                    case 'month':
+                        countWhereConditions.push(`o.created_at >= DATE_TRUNC('month', CURRENT_DATE)`);
+                        break;
+                    case 'year':
+                        countWhereConditions.push(`o.created_at >= DATE_TRUNC('year', CURRENT_DATE)`);
+                        break;
+                }
+            }
+        }
+
+        const countWhereClause = countWhereConditions.length > 0 ? `WHERE ${countWhereConditions.join(' AND ')}` : '';
+
+        if (user.role !== 'CUSTOMER' && (!filters.time_filter || filters.time_filter === 'recent')) {
+            countQuery = `
+                WITH ranked_orders AS (
+                    SELECT
+                        o.*,
+                        ROW_NUMBER() OVER (PARTITION BY o.marketer_id ORDER BY o.created_at DESC) as rn
+                    FROM orders o
+                    ${countWhereClause}
+                )
+                SELECT COUNT(*) FROM ranked_orders WHERE rn <= 5
+            `;
+        } else {
+            countQuery = `
+                SELECT COUNT(*)
+                FROM orders o
+                ${countWhereClause}
+            `;
+        }
+
+        const countRes = await db.query(countQuery, countParams);
 
         return {
             data: rows,
