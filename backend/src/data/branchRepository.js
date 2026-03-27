@@ -1,54 +1,46 @@
-const db = require('../helpers/DBHelper');
+const db = require("../helpers/DBHelper");
 
 class BranchRepository {
-
-    async create({ id, governorate_id }) {
-
-        const sql = `
+  async create({ id, governorate_id }) {
+    const sql = `
       INSERT INTO branches (id, governorate_id)
       VALUES ($1,$2)
     `;
 
-        await db.query(sql, [id, governorate_id]);
-    }
+    await db.query(sql, [id, governorate_id]);
+  }
 
-    async updateStatus({ id, status }) {
-
-        const sql = `
+  async updateStatus({ id, status }) {
+    const sql = `
       UPDATE branches
       SET
         status = $2
       WHERE id = $1
     `;
 
-        const { rowCount } = await db.query(sql, [id, governorate_id]);
+    const { rowCount } = await db.query(sql, [id, governorate_id]);
 
-        return rowCount > 0;
-    }
+    return rowCount > 0;
+  }
 
-    async delete(id) {
+  async delete(id) {
+    const { rowCount } = await db.query(`DELETE FROM branches WHERE id = $1`, [
+      id,
+    ]);
 
-        const { rowCount } = await db.query(
-            `DELETE FROM branches WHERE id = $1`,
-            [id]
-        );
+    return rowCount > 0;
+  }
 
-        return rowCount > 0;
-    }
+  async findById(id) {
+    const { rows } = await db.query(`SELECT * FROM branches WHERE id = $1`, [
+      id,
+    ]);
 
-    async findById(id) {
+    return rows[0] || null;
+  }
 
-        const { rows } = await db.query(
-            `SELECT * FROM branches WHERE id = $1`,
-            [id]
-        );
-
-        return rows[0] || null;
-    }
-
-    async list({ limit, offset }) {
-
-        const sql = `
+  async list({ limit, offset }) {
+    const sql = `
       SELECT 
         b.id,
         g.name as governorate,
@@ -59,40 +51,37 @@ class BranchRepository {
       LIMIT $1 OFFSET $2
     `;
 
-        const { rows } = await db.query(sql, [limit, offset]);
+    const { rows } = await db.query(sql, [limit, offset]);
 
-        return rows;
-    }
+    return rows;
+  }
 
-    async count() {
+  async count() {
+    const { rows } = await db.query(
+      `SELECT COUNT(*)::int as count FROM branches`,
+    );
 
-        const { rows } = await db.query(
-            `SELECT COUNT(*)::int as count FROM branches`
-        );
+    return rows[0].count;
+  }
 
-        return rows[0].count;
-    }
-
-    async findByGovernorate(governorateId) {
-
-        const { rows } = await db.query(
-            `
+  async findByGovernorate(governorateId) {
+    const { rows } = await db.query(
+      `
       SELECT *
       FROM branches
       WHERE governorate_id = $1
       LIMIT 1
       `,
-            [governorateId]
-        );
+      [governorateId],
+    );
 
-        return rows[0] || null;
+    return rows[0] || null;
+  }
 
-    }
-
-    async getBranchDetails(branchId) {
-
-        // 1. Get branch with governorate and branch manager
-        const branchRes = await db.query(`
+  async getBranchDetails(branchId) {
+    // 1. Get branch with governorate and branch manager
+    const branchRes = await db.query(
+      `
             SELECT
                 b.id,
                 g.name AS governorate,
@@ -111,14 +100,17 @@ class BranchRepository {
                 )
             LEFT JOIN users bm_user ON bm_user.id = bm.user_id
             WHERE b.id = $1
-        `, [branchId]);
+        `,
+      [branchId],
+    );
 
-        if (!branchRes.rows.length) return null;
+    if (!branchRes.rows.length) return null;
 
-        const branch = branchRes.rows[0];
+    const branch = branchRes.rows[0];
 
-        // 2. Get all employees in this branch with their full name and phone
-        const employeesRes = await db.query(`
+    // 2. Get all employees in this branch with their full name and phone
+    const employeesRes = await db.query(
+      `
             SELECT
                 e.id,
                 u.first_name || ' ' || u.last_name AS full_name,
@@ -129,24 +121,40 @@ class BranchRepository {
             JOIN roles r ON r.id = u.role_id
             WHERE e.branch_id = $1
             ORDER BY r.name, u.first_name
-        `, [branchId]);
+        `,
+      [branchId],
+    );
 
-        // 3. Get count of orders in this branch
-        const ordersCountRes = await db.query(`
+    // 3. Get count of orders in this branch
+    const ordersCountRes = await db.query(
+      `
             SELECT COUNT(*)::int AS orders_count
             FROM orders
             WHERE branch_id = $1
-        `, [branchId]);
+        `,
+      [branchId],
+    );
 
-        return {
-            ...branch,
-            employees: employeesRes.rows,
-            orders_count: ordersCountRes.rows[0].orders_count
-        };
-
+    return {
+      ...branch,
+      employees: employeesRes.rows,
+      orders_count: ordersCountRes.rows[0].orders_count,
+    };
+  }
+  async updateStatus({ id, is_active }) {
+    try {
+      const query = `
+            UPDATE branches 
+            SET is_active = $1, updated_at = NOW()
+            WHERE id = $2 AND deleted_at IS NULL
+            RETURNING id, is_active, governorate_id, created_at, updated_at
+        `;
+      const result = await db.query(query, [is_active, id]);
+      return result.rows[0];
+    } catch (err) {
+      throw err;
     }
-
-
+  }
 }
 
 module.exports = new BranchRepository();

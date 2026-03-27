@@ -1,141 +1,138 @@
-const branchService = require('../services/branchService');
+const branchService = require("../services/branchService");
 
 class BranchController {
+  create = async (req, res) => {
+    try {
+      const { governorate_id } = req.body || {};
 
-    create = async (req, res) => {
+      const result = await branchService.createBranch({
+        governorate_id,
+      });
 
-        try {
-
-            const { governorate_id } = req.body || {};
-
-            const result = await branchService.createBranch({
-                governorate_id
-            });
-
-            res.status(201).json({
-                success: true,
-                body: result,
-                message: "تم إنشاء الفرع بنجاح"
-            });
-
-        } catch (err) {
-
-            res.status(400).json({
-                success: false,
-                message: err.message
-            });
-
-        }
-
+      res.status(201).json({
+        success: true,
+        body: result,
+        message: "تم إنشاء الفرع بنجاح",
+      });
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        message: err.message,
+      });
     }
+  };
 
-    update = async (req, res) => {
+  update = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { governorate_id } = req.body || {};
 
-        try {
+      const result = await branchService.updateBranch({
+        id,
+        governorate_id,
+      });
 
-            const { id } = req.params;
-            const { governorate_id } = req.body || {};
-
-            const result = await branchService.updateBranch({
-                id,
-                governorate_id
-            });
-
-            res.json({
-                success: true,
-                body: result,
-                message: "تم تعديل الفرع"
-            });
-
-        } catch (err) {
-
-            res.status(400).json({
-                success: false,
-                message: err.message
-            });
-
-        }
-
+      res.json({
+        success: true,
+        body: result,
+        message: "تم تعديل الفرع",
+      });
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        message: err.message,
+      });
     }
+  };
 
-    delete = async (req, res) => {
+  delete = async (req, res) => {
+    try {
+      const { id } = req.params;
 
-        try {
+      const result = await branchService.deleteBranch(id);
 
-            const { id } = req.params;
-
-            const result = await branchService.deleteBranch(id);
-
-            res.json({
-                success: true,
-                body: result,
-                message: "تم حذف الفرع"
-            });
-
-        } catch (err) {
-
-            res.status(400).json({
-                success: false,
-                message: err.message
-            });
-
-        }
-
+      res.json({
+        success: true,
+        body: result,
+        message: "تم حذف الفرع",
+      });
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        message: err.message,
+      });
     }
+  };
 
-    list = async (req, res) => {
+  list = async (req, res) => {
+    try {
+      const { page, limit } = req.query;
 
-        try {
+      const result = await branchService.listBranches({
+        page,
+        limit,
+      });
 
-            const { page, limit } = req.query;
-
-            const result = await branchService.listBranches({
-                page,
-                limit
-            });
-
-            res.json({
-                success: true,
-                body: result,
-                message: "تم جلب الفروع"
-            });
-
-        } catch (err) {
-
-            res.status(400).json({
-                success: false,
-                message: err.message
-            });
-
-        }
-
+      res.json({
+        success: true,
+        body: result,
+        message: "تم جلب الفروع",
+      });
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        message: err.message,
+      });
     }
+  };
 
-    getById = async (req, res) => {
+  getById = async (req, res) => {
+    try {
+      const { id } = req.params;
 
-        try {
+      const result = await branchService.getBranchDetails(id);
 
-            const { id } = req.params;
-
-            const result = await branchService.getBranchDetails(id);
-
-            res.json({
-                success: true,
-                body: result,
-                message: "تم جلب تفاصيل الفرع"
-            });
-
-        } catch (err) {
-
-            res.status(400).json({
-                success: false,
-                message: err.message
-            });
-
-        }
-
+      res.json({
+        success: true,
+        body: result,
+        message: "تم جلب تفاصيل الفرع",
+      });
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        message: err.message,
+      });
     }
+  };
+  updateStatus = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { is_active } = req.body || {};
 
+      if (is_active === undefined || typeof is_active !== "boolean") {
+        return res.status(400).json({
+          success: false,
+          message: "is_active يجب أن تكون قيمة منطقية (true/false)",
+        });
+      }
+
+      const result = await branchService.updateBranchStatus({
+        id,
+        is_active,
+      });
+
+      res.json({
+        success: true,
+        body: result,
+        message: `تم ${is_active ? "تنشيط" : "تعطيل"} الفرع بنجاح`,
+      });
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  };
 }
 
 module.exports = new BranchController();

@@ -1,126 +1,124 @@
-const { randomUUID } = require('crypto');
-const branchRepo = require('../data/branchRepository');
-const { isUuid } = require('../helpers/GeneralHelper');
+const { randomUUID } = require("crypto");
+const branchRepo = require("../data/branchRepository");
+const { isUuid } = require("../helpers/GeneralHelper");
 
 class BranchService {
+  async createBranch({ governorate_id }) {
+    try {
+      governorate_id = isUuid(governorate_id, "المحافظة غير صحيحة");
 
-    async createBranch({ governorate_id }) {
+      const id = randomUUID();
 
-        try {
-            governorate_id = isUuid(governorate_id, 'المحافظة غير صحيحة');
+      await branchRepo.create({
+        id,
+        governorate_id,
+      });
 
-            const id = randomUUID();
-
-            await branchRepo.create({
-                id,
-                governorate_id
-            });
-
-            return { id,governorate_id };
-
-        } catch (err) {
-            throw err;
-        }
-
+      return { id, governorate_id };
+    } catch (err) {
+      throw err;
     }
+  }
 
-    async updateBranch({ id, governorate_id }) {
+  async updateBranch({ id, governorate_id }) {
+    try {
+      id = isUuid(id, "معرف الفرع غير صحيح");
+      governorate_id = isUuid(governorate_id, "المحافظة غير صحيحة");
 
-        try {
+      const exists = await branchRepo.findById(id);
 
-            id = isUuid(id, 'معرف الفرع غير صحيح');
-            governorate_id = isUuid(governorate_id, 'المحافظة غير صحيحة');
+      if (!exists) {
+        throw new Error("الفرع غير موجود");
+      }
 
-            const exists = await branchRepo.findById(id);
+      await branchRepo.update({
+        id,
+        governorate_id,
+      });
 
-            if (!exists) {
-                throw new Error('الفرع غير موجود');
-            }
-
-            await branchRepo.update({
-                id,
-                governorate_id
-            });
-
-            return { id };
-
-        } catch (err) {
-            throw err;
-        }
-
+      return { id };
+    } catch (err) {
+      throw err;
     }
+  }
+  async updateBranchStatus({ id, is_active }) {
+    try {
+      id = isUuid(id, "معرف الفرع غير صحيح");
 
-    async deleteBranch(id) {
+      const exists = await branchRepo.findById(id);
 
-        try {
+      if (!exists) {
+        throw new Error("الفرع غير موجود");
+      }
 
-            id = isUuid(id, 'معرف الفرع غير صحيح');
+      await branchRepo.updateStatus({
+        id,
+        is_active,
+      });
 
-            const exists = await branchRepo.findById(id);
-
-            if (!exists) {
-                throw new Error('الفرع غير موجود');
-            }
-
-            await branchRepo.delete(id);
-
-            return { id };
-
-        } catch (err) {
-            throw err;
-        }
-
+      return { id, is_active };
+    } catch (err) {
+      throw err;
     }
+  }
+  async deleteBranch(id) {
+    try {
+      id = isUuid(id, "معرف الفرع غير صحيح");
 
-    async listBranches({ page = 1, limit = 10 }) {
+      const exists = await branchRepo.findById(id);
 
-        try {
+      if (!exists) {
+        throw new Error("الفرع غير موجود");
+      }
 
-            page = Number(page);
-            limit = Number(limit);
+      await branchRepo.delete(id);
 
-            const offset = (page - 1) * limit;
-
-            const rows = await branchRepo.list({ limit, offset });
-
-            const total = await branchRepo.count();
-
-            return {
-                data: rows,
-                pagination: {
-                    total,
-                    page,
-                    limit,
-                    pages: Math.ceil(total / limit)
-                }
-            };
-
-        } catch (err) {
-            throw err;
-        }
-
+      return { id };
+    } catch (err) {
+      throw err;
     }
+  }
 
-    async getBranchDetails(id) {
+  async listBranches({ page = 1, limit = 10 }) {
+    try {
+      page = Number(page);
+      limit = Number(limit);
 
-        try {
+      const offset = (page - 1) * limit;
 
-            id = isUuid(id, 'معرف الفرع غير صحيح');
+      const rows = await branchRepo.list({ limit, offset });
 
-            const branch = await branchRepo.getBranchDetails(id);
+      const total = await branchRepo.count();
 
-            if (!branch) {
-                throw new Error('الفرع غير موجود');
-            }
-
-            return branch;
-
-        } catch (err) {
-            throw err;
-        }
-
+      return {
+        data: rows,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        },
+      };
+    } catch (err) {
+      throw err;
     }
+  }
 
+  async getBranchDetails(id) {
+    try {
+      id = isUuid(id, "معرف الفرع غير صحيح");
+
+      const branch = await branchRepo.getBranchDetails(id);
+
+      if (!branch) {
+        throw new Error("الفرع غير موجود");
+      }
+
+      return branch;
+    } catch (err) {
+      throw err;
+    }
+  }
 }
 
 module.exports = new BranchService();
