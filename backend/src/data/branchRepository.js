@@ -12,12 +12,12 @@ class BranchRepository {
         await db.query(sql, [id, governorate_id]);
     }
 
-    async update({ id, governorate_id }) {
+    async updateStatus({ id, status }) {
 
         const sql = `
       UPDATE branches
       SET
-        governorate_id = $2
+        status = $2
       WHERE id = $1
     `;
 
@@ -51,7 +51,8 @@ class BranchRepository {
         const sql = `
       SELECT 
         b.id,
-        g.name as governorate
+        g.name as governorate,
+        b.is_active
       FROM branches b
       LEFT JOIN governorates g ON g.id = b.governorate_id
       ORDER BY g.name

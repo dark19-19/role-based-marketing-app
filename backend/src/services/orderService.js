@@ -14,7 +14,7 @@ class OrderService {
 
     async createOrder(user, payload, client) {
 
-        const {customer_id, items, sold_price, notes} = payload;
+        const {customer_id, branch_id, items, sold_price, notes} = payload;
 
         // 1️⃣ get customer
         const customer = await customerRepository.findById(customer_id);
@@ -43,12 +43,12 @@ class OrderService {
         }
 
         // 3️⃣ determine branch
-        const branch = await branchRepository.findByGovernorate(
-            customer.governorate_id
+        const branch = await branchRepository.findById(
+            branch_id
         );
 
         if (!branch) {
-            throw new Error('Branch not found for this governorate');
+            throw new Error('Branch not found');
         }
 
         // 4️⃣ get products
