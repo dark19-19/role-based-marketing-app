@@ -1,6 +1,9 @@
 const { randomUUID } = require('crypto');
 const employeeRepo = require('../data/employeeRepository');
 const salaryRequestRepo = require('../data/salaryRequestRepository');
+const userRepo = require('../data/userRepository');
+const db = require('../helpers/DBHelper')
+const bcrypt = require('bcrypt');
 
 class EmployeeService {
 
@@ -219,6 +222,62 @@ class EmployeeService {
         } catch (err) {
             throw err;
         }
+    }
+
+    async updateEmployee({ employeeId, payload, user }) {
+
+        return await db.runInTransaction(async (client) => {
+
+            // 1️⃣ verify updater password
+            const updater = await userRepo.findById(user.id);
+
+            const valid = await bcrypt.compare(payload.current_password, updater.password);
+
+            if (!valid) {
+                throw new Error('كلمة المرور غير صحيحة');
+            }
+
+            // 2️⃣ get employee
+            const employee = await employeeRepo.findByIdWithUser(employeeId);
+
+            if (!employee) {
+                throw new Error('الموظف غير موجود');
+            }
+
+            // 3️⃣ branch manager restriction
+            if (user.role === 'BRANCH_MANAGER') {
+
+                const managerEmployee = await employeeRepo.findByUserId(user.id);
+
+                if (employee.branch_id !== managerEmployee.branch_id) {
+                    throw new Error('لا يمكنك تعديل موظف خارج فرعك');
+                }
+
+            }
+
+            // 4️⃣ update branch
+            if (payload.branch_id) {
+                await employeeRepo.updateBranch(employeeId, payload.branch_id, client);
+            }
+
+            // 5️⃣ update phone
+            if (payload.phone) {
+                await employeeRepo.updatePhone(employee.user_id, payload.phone, client);
+            }
+
+            // 6️⃣ update password
+            if (payload.password) {
+
+                const hash = await bcrypt.hash(payload.password, 10);
+
+                await employeeRepo.updatePassword(employee.user_id, hash, client);
+
+            }
+
+            return { message: 'تم تحديث بيانات الموظف بنجاح' };
+
+        });
+
     }
 
 }

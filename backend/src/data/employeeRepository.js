@@ -312,6 +312,52 @@ ORDER BY name
         return parseFloat(rows[0].total_salary);
     }
 
+    async findByIdWithUser(employeeId) {
+
+        const { rows } = await db.query(`
+    SELECT
+      e.id,
+      e.branch_id,
+      e.user_id,
+      u.phone,
+      u.password
+    FROM employees e
+    JOIN users u ON u.id = e.user_id
+    WHERE e.id = $1
+  `, [employeeId]);
+
+        return rows[0] || null;
+
+    }
+
+    async updateBranch(employeeId, branchId, client) {
+
+        await client.query(`
+    UPDATE employees
+    SET branch_id = $2
+    WHERE id = $1
+  `, [employeeId, branchId]);
+
+    }
+    async updatePhone(userId, phone, client) {
+
+        await client.query(`
+    UPDATE users
+    SET phone = $2
+    WHERE id = $1
+  `, [userId, phone]);
+
+    }
+    async updatePassword(userId, passwordHash, client) {
+
+        await client.query(`
+    UPDATE users
+    SET password = $2
+    WHERE id = $1
+  `, [userId, passwordHash]);
+
+    }
+
 }
 
 module.exports = new EmployeeRepository();

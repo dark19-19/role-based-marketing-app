@@ -147,6 +147,32 @@ class EmployeeController {
         }
     }
 
+    async update(req, res) {
+
+        try {
+
+            const result = await employeeService.updateEmployee({
+                employeeId: req.params.id,
+                payload: req.body,
+                user: req.user
+            });
+
+            res.json({
+                success: true,
+                body: result
+            });
+
+        } catch (err) {
+
+            res.status(400).json({
+                success: false,
+                message: err.message
+            });
+
+        }
+
+    }
+
 }
 
 module.exports = new EmployeeController();

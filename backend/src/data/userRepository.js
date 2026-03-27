@@ -3,7 +3,7 @@ const db = require('../helpers/DBHelper');
 class UserRepository {
 
   async findById(id) {
-    const sql = `SELECT id, username, tele_id, balance FROM users WHERE id = $1`;
+    const sql = `SELECT * FROM users WHERE id = $1`;
     const { rows } = await db.query(sql, [id]);
     return rows[0] || null;
   }

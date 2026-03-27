@@ -27,6 +27,13 @@ router.get(
     employeeController.getDetails
 );
 
+router.put(
+    '/employees/:id',
+    authMiddleware,
+    requireRole(['ADMIN', 'BRANCH_MANAGER']),
+    employeeController.update
+);
+
 // Salary request routes
 router.post(
     '/salary-requests',
