@@ -5,6 +5,7 @@ const roleRepository = require('../data/roleRepository');
 const userRepository = require('../data/userRepository');
 const employeeRepository = require('../data/employeeRepository');
 const customerRepository = require('../data/customerRepository');
+const orderRepository = require('../data/orderRepository');
 
 class CustomerService {
 
@@ -68,6 +69,36 @@ class CustomerService {
                 limit,
                 pages
             }
+        };
+
+    }
+
+    async getById(customerId) {
+
+        // 1️⃣ customer data
+        const customer = await customerRepository.findById(customerId);
+
+        if (!customer) {
+            throw new Error('Customer not found');
+        }
+
+        // 2️⃣ orders
+        const orders = await orderRepository.getOrdersByCustomerId(customerId);
+
+        const orderIds = orders.map(o => o.id);
+
+        // 3️⃣ items
+        const items = await orderRepository.getItemsByOrderIds(orderIds);
+
+        // 4️⃣ attach items to orders
+        const ordersWithItems = orders.map(order => ({
+            ...order,
+            items: items.filter(i => i.order_id === order.id)
+        }));
+
+        return {
+            ...customer,
+            orders: ordersWithItems
         };
 
     }

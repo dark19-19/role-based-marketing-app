@@ -450,6 +450,51 @@ class OrderRepository {
 
     }
 
+    async getOrdersByCustomerId(customerId) {
+
+        const { rows } = await db.query(`
+    SELECT
+      id,
+      status,
+      total_main_price,
+      total_sold_price,
+      created_at
+    FROM orders
+    WHERE customer_id = $1
+    ORDER BY created_at DESC
+  `, [customerId]);
+
+        return rows;
+
+    }
+
+    async getItemsByOrderIds(orderIds) {
+
+        if (!orderIds.length) return [];
+
+        const { rows } = await db.query(`
+    SELECT
+      oi.order_id,
+
+      p.name,
+      p.description,
+
+      oi.quantity,
+      oi.main_price,
+      oi.sold_price
+
+    FROM order_items oi
+
+    JOIN products p
+      ON p.id = oi.product_id
+
+    WHERE oi.order_id = ANY($1)
+  `, [orderIds]);
+
+        return rows;
+
+    }
+
 }
 
 module.exports = new OrderRepository();

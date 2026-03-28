@@ -34,7 +34,8 @@ class CustomerRepository {
         const { rows } = await db.query(
             `
     SELECT
-
+       c.id as customer_id,
+       u.id as customer_user_id,
       u.first_name || ' ' || u.last_name AS name,
       u.phone,
       u.is_active,
@@ -97,16 +98,44 @@ class CustomerRepository {
 
     }
 
-    async findById(id) {
+    async findById(customerId) {
 
-        const { rows } = await db.query(
-            `
-    SELECT *
-    FROM customers
-    WHERE id = $1
-    `,
-            [id]
-        );
+        const { rows } = await db.query(`
+    SELECT
+      c.id,
+
+      (u.first_name || ' ' || u.last_name) AS full_name,
+      u.phone,
+
+      g.name AS governorate,
+
+      (ru.first_name || ' ' || ru.last_name) AS referred_by_name,
+      ru.phone AS referred_by_phone,
+
+      (mu.first_name || ' ' || mu.last_name) AS first_marketer_name,
+      mu.phone AS first_marketer_phone
+
+    FROM customers c
+
+    JOIN users u ON u.id = c.user_id
+
+    LEFT JOIN governorates g
+      ON g.id = c.governorate_id
+
+    LEFT JOIN employees re
+      ON re.id = c.referred_by
+
+    LEFT JOIN users ru
+      ON ru.id = re.user_id
+
+    LEFT JOIN employees me
+      ON me.id = c.first_marketer_id
+
+    LEFT JOIN users mu
+      ON mu.id = me.user_id
+
+    WHERE c.id = $1
+  `, [customerId]);
 
         return rows[0] || null;
 

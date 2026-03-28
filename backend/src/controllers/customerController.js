@@ -60,6 +60,28 @@ class CustomerController {
 
     }
 
+    async getById(req, res) {
+
+        try {
+
+            const customer = await customerService.getById(req.params.id);
+
+            res.json({
+                success: true,
+                data: customer
+            });
+
+        } catch (err) {
+
+            res.status(404).json({
+                success: false,
+                message: err.message
+            });
+
+        }
+
+    }
+
 }
 
 module.exports = new CustomerController();
