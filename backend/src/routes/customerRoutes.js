@@ -18,7 +18,7 @@ router.post(
 router.get(
   "/customers",
   authMiddleware,
-  requireRole(["ADMIN ", "MARKETER", "SUPERVISOR", "GENERAL_SUPERVISOR"]),
+  requireRole(["ADMIN", "MARKETER", "SUPERVISOR", "GENERAL_SUPERVISOR"]),
   customerController.list,
 );
 
