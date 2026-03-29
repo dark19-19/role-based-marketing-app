@@ -170,6 +170,17 @@ class ProductRepository {
 
   }
 
+  async increaseQuantity({ product_id, quantity }) {
+    const { rows } = await db.query(`
+      UPDATE products
+      SET quantity = quantity + $2,
+          in_stock = CASE WHEN (quantity + $2) > 0 THEN TRUE ELSE FALSE END
+      WHERE id = $1
+      RETURNING id, quantity
+    `, [product_id, quantity]);
+
+    return rows[0] || null;
+  }
 
 }
 

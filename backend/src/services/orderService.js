@@ -76,7 +76,10 @@ class OrderService {
             });
 
             totalPrice += product.price * item.quantity;
+        }
 
+        if (sold_price < totalPrice) {
+            throw new Error(`Sold price (${sold_price}) cannot be less than the total main system price (${totalPrice})`);
         }
 
         // 6️⃣ create order
@@ -214,6 +217,16 @@ class OrderService {
 
         if (!employee || employee.branch_id !== order.branch_id) {
             throw new Error('Unauthorized');
+        }
+
+        const items = await orderItemRepository.findByOrderId(orderId);
+
+        // Restore product quantities
+        for (const item of items) {
+           await productRepository.increaseQuantity({
+               product_id: item.product_id,
+               quantity: item.quantity
+           });
         }
 
         await orderRepository.updateStatus(orderId, 'REJECTED', client);
