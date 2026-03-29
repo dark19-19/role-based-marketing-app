@@ -191,8 +191,8 @@ class OrderRepository {
                     g.name AS governorate,
 
                     ro.status,
-                    ro.total_main_price,
-                    ro.total_sold_price
+                    ro.total_main_price AS total_price,
+                    ro.total_sold_price AS sold_price
 
                 FROM ranked_orders ro
 
@@ -225,8 +225,8 @@ class OrderRepository {
                     g.name AS governorate,
 
                     o.status,
-                    o.total_main_price,
-                    o.total_sold_price
+                    o.total_main_price AS total_price,
+                    o.total_sold_price AS sold_price
 
                 FROM orders o
 
@@ -360,8 +360,8 @@ class OrderRepository {
       SELECT
         o.id,
         o.status,
-        o.total_main_price,
-        o.total_sold_price,
+        o.total_main_price AS total_price,
+        o.total_sold_price AS sold_price,
 
         (cu.first_name || ' ' || cu.last_name) AS customer_name,
         cu.phone AS customer_phone,
@@ -371,6 +371,8 @@ class OrderRepository {
 
         (su.first_name || ' ' || su.last_name) AS supervisor_name,
         (gsu.first_name || ' ' || gsu.last_name) AS general_supervisor_name,
+
+        g.name AS branch_name,
 
         g.name AS governorate
 
