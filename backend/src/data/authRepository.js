@@ -9,9 +9,12 @@ class AuthRepository {
         u.phone,
         u.password,
         u.is_active,
-        r.name as role
+        r.name as role,
+        e.id as employee_id,
+        e.branch_id
       FROM users u
       LEFT JOIN roles r ON r.id = u.role_id
+      LEFT JOIN employees e ON e.user_id = u.id
       WHERE u.phone = $1
     `;
 
@@ -47,9 +50,12 @@ class AuthRepository {
         u.id,
         u.phone,
         u.is_active,
-        r.name as role
+        r.name as role,
+        e.id as employee_id,
+        e.branch_id
       FROM users u
       LEFT JOIN roles r ON r.id = u.role_id
+      LEFT JOIN employees e ON e.user_id = u.id
       WHERE u.id = $1
     `;
         const { rows } = await db.query(sql, [user_id]);

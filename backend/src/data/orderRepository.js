@@ -360,6 +360,7 @@ class OrderRepository {
       SELECT
         o.id,
         o.status,
+        o.branch_id,
         o.total_main_price AS total_price,
         o.total_sold_price AS sold_price,
 

@@ -12,7 +12,7 @@ router.post('/commissions', commissionController.create);
 router.put('/commissions/:id', commissionController.update);
 router.delete('/commissions/:id', commissionController.delete);
 
-router.get('/commissions/', commissionController.list);
+router.get('/commissions', commissionController.list);
 router.get('/commissions/:id', commissionController.getById);
 // router.get('/product/:productId', commissionController.getByProductId);
 

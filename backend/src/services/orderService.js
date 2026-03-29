@@ -109,109 +109,95 @@ class OrderService {
     }
 
     async approveOrder(user, orderId, client) {
-
         const order = await orderRepository.findById(orderId);
-
         if (!order) throw new Error('Order not found');
+        if (order.status !== 'PENDING') throw new Error('You cannot change this order status');
 
-        if(order.status !== 'PENDING') throw new Error('You cannot change this order status')
-
-        // check branch manager
         const employee = await employeeRepository.findByUserId(user.id);
-
         if (!employee || employee.branch_id !== order.branch_id) {
             throw new Error('Unauthorized');
         }
 
         const items = await orderItemRepository.findByOrderId(orderId);
+        const { distributions, metadata } = await this._calculateDistributions(order, items);
 
+        // table: order_commissions
+        await orderCommissionRepo.create({
+            order_id: orderId,
+            company: metadata.company,
+            gs: metadata.gs,
+            supervisor: metadata.supervisor,
+            marketer: metadata.marketer
+        });
+
+        // wallet transactions
+        for (const dist of distributions) {
+            if (dist.amount > 0) {
+                await walletRepo.create({
+                    employee_id: dist.employee_id,
+                    order_id: orderId,
+                    amount: dist.amount,
+                    type: TYPES.BALANCE
+                });
+            }
+        }
+
+        await orderRepository.updateStatus(orderId, 'APPROVED');
+    }
+
+    async _calculateDistributions(order, items) {
         const commissions = await commissionRepo.getAll();
-
+        
         let company = 0;
         let gs = 0;
         let supervisor = 0;
 
         for (const item of items) {
-
             const specific = commissions.find(c => c.product_id === item.product_id);
             const general = commissions.find(c => c.product_id === null);
-
             const c = specific || general;
 
             if (!c) throw new Error('Commission not configured');
 
             const base = item.main_price * item.quantity;
-
             company += base * (c.company_percentage / 100);
             gs += base * (c.general_supervisor_percentage / 100);
             supervisor += base * (c.supervisor_percentage / 100);
-
         }
-
 
         const mainTotal = order.total_main_price;
         const extra = order.total_sold_price - mainTotal;
-
         const marketer = (mainTotal - (company + gs + supervisor)) + extra;
 
-
-        // get hierarchy
         let marketerEmployee = await employeeRepository.findById(order.marketer_id);
         let supervisorEmployee = marketerEmployee?.supervisor_id
             ? await employeeRepository.findById(marketerEmployee.supervisor_id)
             : null;
-
         let gsEmployee = supervisorEmployee?.supervisor_id
             ? await employeeRepository.findById(supervisorEmployee.supervisor_id)
             : null;
 
+        // Hierarchy shifting
         if (gsEmployee === null) {
-            company += gs
-            gs = supervisor
-            supervisor = 0
-            gsEmployee = supervisorEmployee
-            supervisorEmployee = null
-
-            await orderCommissionRepo.create({
-                order_id: orderId,
-                company,
-                gs,
-                supervisor,
-                marketer
-            });
-        }
-         else {
-            await orderCommissionRepo.create({
-                order_id: orderId,
-                company,
-                gs,
-                supervisor,
-                marketer
-            });
+            company += gs;
+            gs = supervisor;
+            supervisor = 0;
+            gsEmployee = supervisorEmployee;
+            supervisorEmployee = null;
         }
 
-        // ADMIN → تحتاج طريقة لجلبه (role ADMIN)
         const admin = await adminRepo.getCompanyAccount();
+        const distributions = [];
 
-        // wallet transactions
-        if (admin) {
-            await walletRepo.create({ employee_id: admin.emp_id, order_id: orderId, amount: company, type: TYPES.BALANCE });
-        }
+        if (admin) distributions.push({ employee_id: admin.emp_id, employee_name: 'الشركة', amount: company });
+        if (gsEmployee) distributions.push({ employee_id: gsEmployee.id, employee_name: gsEmployee.name || 'المشرف العام', amount: gs });
+        if (supervisorEmployee) distributions.push({ employee_id: supervisorEmployee.id, employee_name: supervisorEmployee.name || 'المشرف', amount: supervisor });
+        if (marketerEmployee) distributions.push({ employee_id: marketerEmployee.id, employee_name: marketerEmployee.name || 'المسوق', amount: marketer });
 
-        if (gsEmployee) {
-            await walletRepo.create({ employee_id: gsEmployee.id, order_id: orderId, amount: gs, type: TYPES.BALANCE });
-        }
-
-        if (supervisorEmployee) {
-            await walletRepo.create({ employee_id: supervisorEmployee.id, order_id: orderId, amount: supervisor, type: TYPES.BALANCE });
-        }
-
-        if (marketerEmployee) {
-            await walletRepo.create({ employee_id: marketerEmployee.id, order_id: orderId, amount: marketer, type: TYPES.BALANCE });
-        }
-
-        await orderRepository.updateStatus(orderId, 'APPROVED');
-
+        return {
+            distributions,
+            metadata: { company, gs, supervisor, marketer }
+        };
     }
 
     async rejectOrder(user, orderId, client) {
@@ -343,6 +329,16 @@ class OrderService {
 
             if (!order) {
                 throw new Error('الطلب غير موجود');
+            }
+
+            if (order.status === 'PENDING') {
+                try {
+                    const items = await orderItemRepository.findByOrderId(orderId);
+                    const { distributions } = await this._calculateDistributions(order, items);
+                    order.preview_transactions = distributions;
+                } catch (e) {
+                    console.error("Failed to generate preview:", e);
+                }
             }
 
             return order;
