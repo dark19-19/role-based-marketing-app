@@ -30,20 +30,32 @@ class ProductRepository {
       SELECT
         p.id,
         p.name,
+        p.description,
         p.price,
         p.quantity,
+        p.in_stock,
+        p.is_active,
+        p.category_id,
         c.name AS category,
-        pi.image_url
+        (
+          SELECT image_url 
+          FROM product_images 
+          WHERE product_id = p.id 
+          AND deleted_at IS NULL 
+          ORDER BY sort_order ASC 
+          LIMIT 1
+        ) AS image_url,
+        (
+          SELECT COUNT(*) 
+          FROM product_images 
+          WHERE product_id = p.id 
+          AND deleted_at IS NULL
+        )::int as image_count
 
       FROM products p
 
       LEFT JOIN categories c
       ON c.id = p.category_id
-
-      LEFT JOIN product_images pi
-      ON pi.product_id = p.id
-      AND pi.sort_order = 0
-      AND pi.deleted_at IS NULL
 
       WHERE p.deleted_at IS NULL
 
@@ -61,7 +73,7 @@ class ProductRepository {
 
     const sql = `
       SELECT
-        p.name, p.description, p.price, p.quantity, p.in_stock, p.is_active, p.category_id,
+        p.id, p.name, p.description, p.price, p.quantity, p.in_stock, p.is_active, p.category_id,
         c.name AS category
       FROM products p
 

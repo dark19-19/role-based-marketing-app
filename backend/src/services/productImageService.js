@@ -53,6 +53,13 @@ class ProductImageService {
 
     }
 
+    async bulkUpdateOrder(orderedIds) {
+        if (!Array.isArray(orderedIds)) {
+            throw new Error('Array of image IDs required');
+        }
+        return await productImageRepo.bulkUpdateOrder(orderedIds);
+    }
+
 }
 
 module.exports = new ProductImageService();

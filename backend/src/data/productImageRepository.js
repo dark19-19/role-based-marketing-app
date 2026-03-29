@@ -78,6 +78,13 @@ WHERE id=$1
 
     }
 
+    async bulkUpdateOrder(orderedIds) {
+        for (let i = 0; i < orderedIds.length; i++) {
+            const sql = `UPDATE product_images SET sort_order = $1 WHERE id = $2`;
+            await db.query(sql, [i, orderedIds[i]]);
+        }
+    }
+
 }
 
 module.exports = new ProductImageRepository();

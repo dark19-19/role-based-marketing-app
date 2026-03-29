@@ -12,12 +12,18 @@ router.post('/products',
 
 router.get('/products',
     authMiddleware,
-    roleMiddleware(["ADMIN"]),
+    roleMiddleware(["ADMIN", "MARKETER", "SUPERVISOR", "BRANCH_MANAGER"]),
      productController.listProducts);
 
-router.get('/products/:id',authMiddleware,roleMiddleware(["ADMIN"]), productController.getProduct);
+router.get('/products/:id',
+    authMiddleware,
+    roleMiddleware(["ADMIN", "MARKETER", "SUPERVISOR", "BRANCH_MANAGER"]),
+    productController.getProduct);
 
-router.put('/products/:id', productController.updateProduct);
+router.put('/products/:id',
+    authMiddleware,
+    roleMiddleware(["ADMIN"]),
+    productController.updateProduct);
 
 router.delete('/products/:id',authMiddleware,roleMiddleware(["ADMIN"]), productController.deleteProduct);
 

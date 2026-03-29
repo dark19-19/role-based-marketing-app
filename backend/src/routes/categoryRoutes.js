@@ -3,7 +3,6 @@ const router = express.Router();
 const roleMiddleware = require('../middleware/roleMiddleware'); 
 const categoryController = require('../controllers/categoryController');
 const authMiddleware = require('../middleware/auth');
-const { requireAdmin } = require('../middleware/auth');
 
 router.post(
   '/categories',
@@ -15,14 +14,14 @@ router.post(
 router.get(
   '/categories',
  authMiddleware,
-roleMiddleware(["ADMIN"]),
+ roleMiddleware(["ADMIN", "MARKETER", "SUPERVISOR", "BRANCH_MANAGER"]),
   categoryController.listCategories
 );
 
 router.put(
   '/categories/:id',
-authMiddleware,
-roleMiddleware(["ADMIN"]),
+ authMiddleware,
+ roleMiddleware(["ADMIN"]),
   categoryController.updateCategory
 );
 
