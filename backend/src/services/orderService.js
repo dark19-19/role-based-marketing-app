@@ -9,6 +9,7 @@ const walletRepo = require('../data/walletRepository');
 const orderCommissionRepo = require('../data/orderCommissionRepository');
 const TYPES = require('../utils/walletTransactionTypes');
 const adminRepo = require('../data/adminRepository')
+const notificationHelper = require('../helpers/notificationHelper')
 
 class OrderService {
 
@@ -102,6 +103,9 @@ class OrderService {
             itemsWithPrice,
             client
         );
+        const branchManager = await branchRepository.getBranchManager(branch.id)
+
+        await notificationHelper.notify(branchManager, 'طلب جديد في الفرع', 'تم إنشاء طلب جديد وتم تحويله إلى فرعكم. يرجى مراجعة الطلب واتخاذ الإجراء المناسب.')
 
         return orderId;
 
@@ -142,6 +146,10 @@ class OrderService {
         }
 
         await orderRepository.updateStatus(orderId, 'APPROVED');
+
+        const marketer = await employeeRepository.findById(order.marketer_id)
+        const user_id = marketer.user_id;
+        await notificationHelper.notify(user_id, 'تم قبول طلبك', `تمت الموافقة على الطلب الذي قمت بإنشائه من قبل مدير الفرع، وتم إيداع المبلغ في حسابك.`)
     }
 
     async _calculateDistributions(order, items) {
@@ -226,6 +234,10 @@ class OrderService {
         }
 
         await orderRepository.updateStatus(orderId, 'REJECTED', client);
+
+        const marketer = await employeeRepository.findById(order.marketer_id)
+        const user_id = marketer.user_id;
+        await notificationHelper.notify(user_id, 'تم رفض الطلب', `تم رفض الطلب الذي قمت بإنشائه من قبل مدير الفرع. يرجى مراجعة تفاصيل الطلب لمعرفة السبب.`)
 
     }
 

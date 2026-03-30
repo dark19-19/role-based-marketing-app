@@ -3,6 +3,10 @@ const salaryRepo = require('../data/salaryRequestRepository');
 const TYPES = require('../utils/walletTransactionTypes');
 const STATUS = require('../utils/salaryRequestStatus');
 const employeeRepo = require('../data/employeeRepository');
+const adminRepo = require('../data/adminRepository');
+const branchRepo = require('../data/branchRepository');
+const notificationHelper = require("../helpers/notificationHelper");
+const employeeRepository = require("../data/employeeRepository");
 class SalaryRequestService {
 
     async createSalaryRequest(user){
@@ -34,6 +38,15 @@ class SalaryRequestService {
                 ids,
                 TYPES.REQUESTED
             );
+
+            const company = await adminRepo.getCompanyAccount()
+            const companyUserId = company.user_id;
+            const branchManager = await branchRepo.getBranchManager(employee.branch_id);
+            const branchManagerUserId = branchManager.user_id;
+            await notificationHelper.notify(companyUserId, 'طلب راتب جديد', `تم استقبال طلب راتب جديد، يرجى مراجعة طلبات الرواتب لمعرفة التفاصيل.`)
+            await notificationHelper.notify(branchManagerUserId, 'طلب راتب جديد', `تم استقبال طلب راتب جديد، يرجى مراجعة طلبات الرواتب لمعرفة التفاصيل.`)
+
+
 
             return request;
 
@@ -126,7 +139,13 @@ class SalaryRequestService {
                     STATUS.APPROVED
                 );
 
+                const request = await salaryRepo.getRequestById(requestId);
+                const employee = await employeeRepo.findById(request.employee_id);
+                const user_id = employee.user_id;
+                await notificationHelper.notify(user_id, 'تمت الموافقة على طلب الراتب', `تمت الموافقة على طلب الراتب الخاص بك وتم تحويل المبلغ بنجاح.`)
             });
+
+
         } catch (error) {
             throw new Error(error);
         }
@@ -152,6 +171,11 @@ class SalaryRequestService {
                 requestId,
                 STATUS.REJECTED
             );
+
+            const request = await salaryRepo.getRequestById(requestId);
+            const employee = await employeeRepo.findById(request.employee_id);
+            const user_id = employee.user_id;
+            await notificationHelper.notify(user_id, 'تم رفض طلب الراتب', `تم رفض طلب الراتب الخاص بك. يرجى التواصل مع الإدارة لمعرفة المزيد من التفاصيل.`)
 
         });
 

@@ -158,7 +158,7 @@ ORDER BY name
 
         const { rows } = await db.query(
             `
-    SELECT e.*
+    SELECT *
     FROM employees e
     JOIN users u ON u.id = e.user_id
     JOIN roles r ON r.id = u.role_id

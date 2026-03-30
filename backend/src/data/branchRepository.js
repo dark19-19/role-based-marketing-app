@@ -155,6 +155,15 @@ class BranchRepository {
       throw err;
     }
   }
+
+  async getBranchManager(branch_id) {
+    const sql = `
+      SELECT u.id as user_id, e.id as employee_id FROM employees e INNER JOIN users u ON e.user_id = u.id
+       WHERE e.branch_id = 'bb573733-a2a4-463f-af3b-275164f4b7b2' 
+       AND u.role_id = '5a2a5446-1674-4180-9c26-30b726c4fe85'
+       LIMIT 1
+    `
+  }
 }
 
 module.exports = new BranchRepository();
