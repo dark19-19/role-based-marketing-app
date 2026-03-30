@@ -11,8 +11,10 @@ const customerRoutes = require('./customerRoutes')
 const orderRoutes = require('./orderRoutes');
 const commissionRoutes = require('./commissionRoutes');
 const employeeRoutes = require('./employeeRoutes');
+const salaryRoutes = require('./salaryRequestRoutes')
 const router = express.Router();
 
+router.use('/api', salaryRoutes);
 router.use('/api', customerRoutes);
 router.use('/api',categoryRoutes);
 router.use('/api', governorateRoutes);
