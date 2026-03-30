@@ -12,8 +12,10 @@ const orderRoutes = require('./orderRoutes');
 const commissionRoutes = require('./commissionRoutes');
 const employeeRoutes = require('./employeeRoutes');
 const salaryRoutes = require('./salaryRequestRoutes')
+const notificationRouter = require('./notificationRoutes');
 const router = express.Router();
 
+router.use('/api', notificationRouter);
 router.use('/api', salaryRoutes);
 router.use('/api', customerRoutes);
 router.use('/api',categoryRoutes);
