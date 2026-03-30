@@ -21,6 +21,51 @@ class WalletRepository {
 
     }
 
+    async getSummary(employeeId) {
+        // Calculate:
+        // currentBalance (where type = 'BALANCE')
+        // totalEarned (all CREDIT basically, but wait, 'BALANCE' initially, then it becomes 'REQUESTED', then 'WITHDREW'. 
+        // Actually, any transaction that came from an order commission is an earning: which means type was initially BALANCE.
+        // It's safer to say totalEarned = SUM of all amounts ever inserted for this employee (excluding reversed or whatever, but currently there are no reversals except removeTransaction which sets back to BALANCE).
+        // Let's just track currentBalance = SUM(amount) WHERE type='BALANCE'
+        // totalWithdrawn = SUM(amount) WHERE type='WITHDREW'
+        // pendingRequestsTotal = SUM(amount) WHERE type='REQUESTED'
+        // totalEarned = currentBalance + totalWithdrawn + pendingRequestsTotal
+        const { rows } = await db.query(`
+            SELECT 
+                COALESCE(SUM(CASE WHEN type = 'BALANCE' THEN amount ELSE 0 END), 0) as current_balance,
+                COALESCE(SUM(CASE WHEN type = 'WITHDREW' THEN amount ELSE 0 END), 0) as total_withdrawn,
+                COALESCE(SUM(CASE WHEN type = 'REQUESTED' THEN amount ELSE 0 END), 0) as pending_requests_total,
+                COALESCE(SUM(amount), 0) as total_earned
+            FROM wallet_transactions
+            WHERE employee_id = $1
+        `, [employeeId]);
+        
+        return rows[0] || { current_balance: 0, total_withdrawn: 0, pending_requests_total: 0, total_earned: 0 };
+    }
+
+    async getTransactions(employeeId) {
+        const { rows } = await db.query(`
+            SELECT 
+                w.id,
+                w.amount,
+                w.type,
+                w.created_at as date,
+                w.order_id,
+                CASE 
+                    WHEN w.type = 'BALANCE' THEN 'إضافة رصيد (صالح للسحب)'
+                    WHEN w.type = 'REQUESTED' THEN 'طلب سحب رصيد (قيد المعالجة)'
+                    WHEN w.type = 'WITHDREW' THEN 'عملية سحب ناجحة'
+                    ELSE w.type
+                END as description
+            FROM wallet_transactions w
+            WHERE w.employee_id = $1
+            ORDER BY w.created_at DESC
+        `, [employeeId]);
+
+        return rows;
+    }
+
 }
 
 module.exports = new WalletRepository();

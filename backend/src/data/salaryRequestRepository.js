@@ -79,8 +79,9 @@ class SalaryRequestRepository {
         return rows[0] || null;
     }
 
-    async updateStatus(id, status) {
-        await db.query(`
+    async updateStatus(client, id, status) {
+        const queryClient = client || db;
+        await queryClient.query(`
             UPDATE salary_requests
             SET status = $1
             WHERE id = $2
@@ -109,11 +110,11 @@ class SalaryRequestRepository {
         const query = `
     SELECT
       sr.id,
-      sr.requested_amount,
+      sr.requested_amount AS amount,
       sr.status,
-      sr.created_at,
+      sr.created_at AS requestDate,
 
-      u.first_name || ' ' || u.last_name AS employee_name,
+      u.first_name || ' ' || u.last_name AS employeeName,
       u.phone,
 
       r.name AS role,
@@ -169,11 +170,11 @@ class SalaryRequestRepository {
         const { rows } = await db.query(`
     SELECT
       sr.id,
-      sr.requested_amount,
+      sr.requested_amount AS amount,
       sr.status,
-      sr.created_at,
+      sr.created_at AS requestDate,
 
-      u.first_name || ' ' || u.last_name AS employee_name,
+      u.first_name || ' ' || u.last_name AS employeeName,
       u.phone,
 
       r.name AS role,

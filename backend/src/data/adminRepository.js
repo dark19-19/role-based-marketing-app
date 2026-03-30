@@ -61,10 +61,11 @@ class AdminRepository {
 
   async getCompanyAccount() {
     const sql = `
-      SELECT u.id as id, u.phone as phone, r.name as role, e.id as emp_id
+      SELECT u.id as user_id, u.phone as phone, r.name as role, e.id as emp_id
         FROM users u INNER JOIN roles r ON r.id = u.role_id
-        INNER JOIN employees e ON e.user_id = u.id
-        WHERE u.phone = '0912345678'
+        LEFT JOIN employees e ON e.user_id = u.id
+        WHERE r.name = 'ADMIN'
+        ORDER BY u.created_at ASC
         LIMIT 1
     `
     const {rows} = await db.query(sql);

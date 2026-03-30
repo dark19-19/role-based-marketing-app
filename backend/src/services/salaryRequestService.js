@@ -6,192 +6,131 @@ const employeeRepo = require('../data/employeeRepository');
 const adminRepo = require('../data/adminRepository');
 const branchRepo = require('../data/branchRepository');
 const notificationHelper = require("../helpers/notificationHelper");
-const employeeRepository = require("../data/employeeRepository");
+
 class SalaryRequestService {
 
-    async createSalaryRequest(user){
-        return db.runInTransaction(async(client)=>{
-            const employee = await employeeRepo.findByUserId(user.id)
+    async createSalaryRequest(user) {
+        return db.runInTransaction(async (client) => {
+            const employee = await employeeRepo.findByUserId(user.id);
+            if (!employee) throw new Error('Employee record not found');
 
-            const transactions =
-                await salaryRepo.getEmployeeBalanceTransactions(employee.id);
-            if(transactions.length === 0)
-                throw new Error('No balance transactions');
+            const transactions = await salaryRepo.getEmployeeBalanceTransactions(employee.id);
+            
+            if (transactions.length === 0)
+                throw new Error('No balance transactions available for withdrawal');
 
-            const amount = transactions.reduce(
-                (sum,t)=>sum + Number(t.amount),0
-            );
+            let totalAmount = 0;
+            transactions.forEach(t => {
+                const val = Number(t.amount);
+                totalAmount += isNaN(val) ? 0 : val;
+            });
 
-            const request =
-                await salaryRepo.create(client,employee.id,amount);
+            if (totalAmount <= 0) {
+               throw new Error('Calculated withdrawal amount must be greater than 0');
+            }
 
-            const ids = transactions.map(t=>t.id);
+            const request = await salaryRepo.create(client, employee.id, totalAmount);
+            const ids = transactions.map(t => t.id);
 
-            await salaryRepo.attachTransactions(
-                client,
-                request.id,
-                ids
-            );
+            await salaryRepo.attachTransactions(client, request.id, ids);
+            await salaryRepo.updateTransactionsType(client, ids, TYPES.REQUESTED);
 
-            await salaryRepo.updateTransactionsType(
-                client,
-                ids,
-                TYPES.REQUESTED
-            );
+            // Robust notification block
+            try {
+                const company = await adminRepo.getCompanyAccount();
+                if (company && company.user_id) {
+                    await notificationHelper.notify(company.user_id, 'طلب راتب جديد', `تم استقبال طلب راتب جديد بقيمة ${totalAmount}، يرجى مراجعة طلبات الرواتب.`);
+                }
 
-            const company = await adminRepo.getCompanyAccount()
-            const companyUserId = company.user_id;
-            const branchManager = await branchRepo.getBranchManager(employee.branch_id);
-            const branchManagerUserId = branchManager.user_id;
-            await notificationHelper.notify(companyUserId, 'طلب راتب جديد', `تم استقبال طلب راتب جديد، يرجى مراجعة طلبات الرواتب لمعرفة التفاصيل.`)
-            await notificationHelper.notify(branchManagerUserId, 'طلب راتب جديد', `تم استقبال طلب راتب جديد، يرجى مراجعة طلبات الرواتب لمعرفة التفاصيل.`)
-
-
+                const branchManager = await branchRepo.getBranchManager(employee.branch_id);
+                if (branchManager && branchManager.user_id) {
+                    await notificationHelper.notify(branchManager.user_id, 'طلب راتب جديد', `تم استقبال طلب راتب جديد بقيمة ${totalAmount} لأحد الموظفين في فرعك.`);
+                }
+            } catch (notifyErr) {
+                console.error("[SalaryRequestService] Notification logic error (ignored):", notifyErr.message);
+            }
 
             return request;
-
         });
-
     }
+
     async getRequestDetails(requestId) {
-
         const request = await salaryRepo.getRequestById(requestId);
+        if (!request) throw new Error('Salary request not found');
 
-        if (!request)
-            throw new Error('Salary request not found');
-
-        const transactions =
-            await salaryRepo.getRequestTransactions(requestId);
-
+        const transactions = await salaryRepo.getRequestTransactions(requestId);
         return {
             ...request,
             transactions
         };
-
     }
 
-    async updateRequestRemoveTransaction(requestId, transactionId) {
-
+    async approveRequest(requestId) {
         return db.runInTransaction(async (client) => {
+            const transactions = await salaryRepo.getRequestTransactions(requestId);
+            const ids = transactions.map(t => t.id);
 
-            const transactions =
-                await salaryRepo.getRequestTransactions(requestId);
+            if (ids.length > 0) {
+                await salaryRepo.updateTransactionsType(client, ids, TYPES.WITHDREW);
+            }
 
-            const exists =
-                transactions.find(t => t.id === transactionId);
+            await salaryRepo.updateStatus(client, requestId, STATUS.APPROVED);
 
-            if (!exists)
-                throw new Error('Transaction not in this request');
-
-            // remove relation
-            await salaryRepo.removeTransactionFromRequest(
-                client,
-                requestId,
-                transactionId
-            );
-
-            // return money to balance
-            await salaryRepo.updateTransactionType(
-                client,
-                transactionId,
-                TYPES.BALANCE
-            );
-
-            // recalc amount
-            const remaining = transactions
-                .filter(t => t.id !== transactionId);
-
-            const newAmount =
-                remaining.reduce((sum, t) => sum + Number(t.amount), 0);
-
-            await salaryRepo.updateRequestAmount(
-                client,
-                requestId,
-                newAmount
-            );
-
-            return {
-                newAmount
-            };
-
-        });
-
-    }
-
-    async approveRequest(requestId){
-        try {
-
-            return db.runInTransaction(async(client)=>{
-
-                const transactions =
-                    await salaryRepo.getRequestTransactions(requestId);
-
-                const ids = transactions.map(t=>t.id);
-                await salaryRepo.updateTransactionsType(
-                    client,
-                    ids,
-                    TYPES.WITHDREW
-                );
-
-
-                await salaryRepo.updateStatus(
-                    requestId,
-                    STATUS.APPROVED
-                );
-
+            // Notify employee (Robust)
+            try {
                 const request = await salaryRepo.getRequestById(requestId);
-                const employee = await employeeRepo.findById(request.employee_id);
-                const user_id = employee.user_id;
-                await notificationHelper.notify(user_id, 'تمت الموافقة على طلب الراتب', `تمت الموافقة على طلب الراتب الخاص بك وتم تحويل المبلغ بنجاح.`)
-            });
-
-
-        } catch (error) {
-            throw new Error(error);
-        }
-
+                if (request) {
+                    const employee = await employeeRepo.findById(request.employee_id || request.employeeId);
+                    if (employee && employee.user_id) {
+                        await notificationHelper.notify(employee.user_id, 'تمت الموافقة على طلب الراتب', `تمت الموافقة على طلب الراتب الخاص بك بنجاح.`);
+                    }
+                }
+            } catch (notifyErr) {
+                console.error("[SalaryRequestService] Approval notification error (ignored):", notifyErr.message);
+            }
+            
+            return { success: true };
+        });
     }
 
-    async rejectRequest(requestId){
+    async rejectRequest(requestId) {
+        return db.runInTransaction(async (client) => {
+            const transactions = await salaryRepo.getRequestTransactions(requestId);
+            const ids = transactions.map(t => t.id);
 
-        return db.runInTransaction(async(client)=>{
+            if (ids.length > 0) {
+                await salaryRepo.updateTransactionsType(client, ids, TYPES.BALANCE);
+            }
 
-            const transactions =
-                await salaryRepo.getRequestTransactions(requestId);
+            await salaryRepo.updateStatus(client, requestId, STATUS.REJECTED);
 
-            const ids = transactions.map(t=>t.id);
+            // Notify employee (Robust)
+            try {
+                const request = await salaryRepo.getRequestById(requestId);
+                if (request) {
+                    const employee = await employeeRepo.findById(request.employee_id || request.employeeId);
+                    if (employee && employee.user_id) {
+                        await notificationHelper.notify(employee.user_id, 'تم رفض طلب الراتب', `تم مع الأسف رفض طلب الراتب الخاص بك. يرجى مراجعة الإدارة.`);
+                    }
+                }
+            } catch (notifyErr) {
+                console.error("[SalaryRequestService] Rejection notification error (ignored):", notifyErr.message);
+            }
 
-            await salaryRepo.updateTransactionsType(
-                client,
-                ids,
-                TYPES.BALANCE
-            );
-
-            await salaryRepo.updateStatus(
-                requestId,
-                STATUS.REJECTED
-            );
-
-            const request = await salaryRepo.getRequestById(requestId);
-            const employee = await employeeRepo.findById(request.employee_id);
-            const user_id = employee.user_id;
-            await notificationHelper.notify(user_id, 'تم رفض طلب الراتب', `تم رفض طلب الراتب الخاص بك. يرجى التواصل مع الإدارة لمعرفة المزيد من التفاصيل.`)
-
+            return { success: true };
         });
-
     }
 
     async listPaginated(user, page = 1, limit = 20) {
-
         const offset = (page - 1) * limit;
-        const employee = await employeeRepo.findByUserId(user.id)
+        const employee = await employeeRepo.findByUserId(user.id);
 
         const result = await salaryRepo.listPaginated({
             limit,
             offset,
             role: user.role,
-            employeeId: employee.id,
-            branchId: employee.branch_id
+            employeeId: employee ? employee.id : null,
+            branchId: employee ? employee.branch_id : null
         });
 
         return {
@@ -203,41 +142,7 @@ class SalaryRequestService {
                 pages: Math.ceil(result.total / limit)
             }
         };
-
     }
-
-    async getRequestsByEmployee(employeeId) {
-        try {
-            const requests = await salaryRequestRepo.findByEmployeeId(employeeId);
-            return requests;
-        } catch (err) {
-            throw err;
-        }
-    }
-
-    async updateRequestStatus(requestId, status) {
-        try {
-            const validStatuses = ['PENDING', 'APPROVED', 'REJECTED'];
-
-            if (!validStatuses.includes(status)) {
-                throw new Error('حالة غير صالحة');
-            }
-
-            const request = await salaryRequestRepo.findById(requestId);
-
-            if (!request) {
-                throw new Error('الطلب غير موجود');
-            }
-
-            await salaryRequestRepo.updateStatus(requestId, status);
-
-            return { id: requestId, status };
-
-        } catch (err) {
-            throw err;
-        }
-    }
-
 }
 
 module.exports = new SalaryRequestService();
