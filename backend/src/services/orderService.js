@@ -78,10 +78,6 @@ class OrderService {
             totalPrice += product.price * item.quantity;
         }
 
-        if (sold_price < totalPrice) {
-            throw new Error(`Sold price (${sold_price}) cannot be less than the total main system price (${totalPrice})`);
-        }
-
         // 6️⃣ create order
         const orderId = await orderRepository.create(
             {
