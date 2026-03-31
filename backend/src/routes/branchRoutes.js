@@ -29,20 +29,20 @@ router.delete(
 router.get(
   "/branches",
   authMiddleware,
-  requireRole(["ADMIN", "MARKETER", "SUPERVISOR", "BRANCH_MANAGER"]),
+  requireRole(["ADMIN", "MARKETER", "SUPERVISOR", "BRANCH_MANAGER" , "GENERAL_SUPERVISOR"]),
   branchController.list,
 );
 
 router.get(
   "/branches/:id",
   authMiddleware,
-  requireRole(["ADMIN", "MARKETER", "SUPERVISOR", "BRANCH_MANAGER"]),
+  requireRole(["ADMIN", "MARKETER", "SUPERVISOR", "BRANCH_MANAGER" , "GENERAL_SUPERVISOR"]),
   branchController.getById,
 );
 router.patch(
   "/branches/:id/status",
   authMiddleware,
-  requireRole(["ADMIN", "MARKETER", "SUPERVISOR", "BRANCH_MANAGER"]),
+  requireRole(["ADMIN"]),
   branchController.updateStatus,
 );
 module.exports = router;

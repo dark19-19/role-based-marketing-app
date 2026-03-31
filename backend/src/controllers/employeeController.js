@@ -1,44 +1,98 @@
 const employeeService = require('../services/employeeService');
 const salaryRequestService = require('../services/salaryRequestService');
+const userRepo = require('../data/userRepository');
+const authRepo = require('../data/authRepository');
+const roleRepo = require('../data/roleRepository');
+const bcrypt = require('bcrypt');
+const { randomUUID } = require('crypto');
 
 class EmployeeController {
 
     create = async (req, res) => {
         try {
-            const { userId, role, branchId, supervisorId } = req.body || {};
-
-            const result = await employeeService.createEmployee({
+            // استقبال البيانات من عندي 
+            const { 
+                first_name, 
+                last_name, 
+                phone, 
+                password, 
+                role, 
+                branchId, 
+                supervisorId 
+            } = req.body || {};
+            
+            
+            if (!first_name || !last_name || !phone || !password || !role) {
+                throw new Error('الاسم الأول، الكنية، رقم الهاتف، كلمة المرور، والدور مطلوبة');
+            }
+            
+            
+            const existing = await authRepo.findUserByPhone(phone);
+            if (existing) {
+                throw new Error('رقم الهاتف مستخدم مسبقاً');
+            }
+            
+            
+            const roleData = await roleRepo.findByName(role);
+            if (!roleData) {
+                throw new Error('الدور المحدد غير موجود');
+            }
+            
+            //  انشاء المستخدم الجديد
+            const passwordHash = await bcrypt.hash(password, 10);
+            const userId = randomUUID();
+            
+            await userRepo.createUser({
+                id: userId,
+                first_name,
+                last_name,
+                phone,
+                passwordHash,
+                role_id: roleData.id
+            });
+            
+           // انشار الموظف المرتبط بالمستخدم
+            const employeeResult = await employeeService.createEmployee({
                 userId,
                 role,
                 branchId,
                 supervisorId
             });
-
+            
+           
             res.status(201).json({
                 success: true,
-                body: result,
+                body: {
+                    id: userId,
+                    first_name,
+                    last_name,
+                    phone,
+                    role,
+                    employee_id: employeeResult.id
+                },
                 message: "تم إنشاء الموظف بنجاح"
             });
 
         } catch (err) {
-
+            console.error("Create employee error:", err);
             res.status(400).json({
                 success: false,
                 message: err.message
             });
-
         }
     }
 
+    // باقي الدوال كما هي دون تغيير
     list = async (req, res) => {
         try {
-            const { page, limit, search, role } = req.query;
+            const { page, limit, search, role, supervisorId } = req.query;
 
             const result = await employeeService.listEmployees({
                 page,
                 limit,
                 search,
-                role
+                role,
+                supervisorId
             });
 
             res.json({
@@ -48,12 +102,10 @@ class EmployeeController {
             });
 
         } catch (err) {
-
             res.status(400).json({
                 success: false,
                 message: err.message
             });
-
         }
     }
 
@@ -70,12 +122,30 @@ class EmployeeController {
             });
 
         } catch (err) {
-
             res.status(400).json({
                 success: false,
                 message: err.message
             });
+        }
+    }
 
+    getHierarchy = async (req, res) => {
+        try {
+            const { root_id } = req.query;
+
+            const result = await employeeService.getHierarchy(root_id);
+
+            res.json({
+                success: true,
+                body: result,
+                message: "تم جلب الهيكلية التنظيمية"
+            });
+
+        } catch (err) {
+            res.status(400).json({
+                success: false,
+                message: err.message
+            });
         }
     }
 
@@ -95,12 +165,10 @@ class EmployeeController {
             });
 
         } catch (err) {
-
             res.status(400).json({
                 success: false,
                 message: err.message
             });
-
         }
     }
 
@@ -117,12 +185,10 @@ class EmployeeController {
             });
 
         } catch (err) {
-
             res.status(400).json({
                 success: false,
                 message: err.message
             });
-
         }
     }
 
@@ -140,19 +206,15 @@ class EmployeeController {
             });
 
         } catch (err) {
-
             res.status(400).json({
                 success: false,
                 message: err.message
             });
-
         }
     }
 
     async update(req, res) {
-
         try {
-
             const result = await employeeService.updateEmployee({
                 employeeId: req.params.id,
                 payload: req.body,
@@ -165,16 +227,12 @@ class EmployeeController {
             });
 
         } catch (err) {
-
             res.status(400).json({
                 success: false,
                 message: err.message
             });
-
         }
-
     }
-
 }
 
 module.exports = new EmployeeController();

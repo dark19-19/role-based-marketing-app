@@ -55,7 +55,7 @@ class EmployeeRepository {
 
     }
 
-    async getEmployees({limit, offset, search, role}){
+    async getEmployees({limit, offset, search, role, supervisorId}){
         let conditions = [];
         let values = [];
         let idx = 1;
@@ -69,6 +69,11 @@ class EmployeeRepository {
         if (role && role !== 'ALL') {
             conditions.push(`r.name = $${idx++}`);
             values.push(role);
+        }
+
+        if (supervisorId) {
+            conditions.push(`e.supervisor_id = $${idx++}`);
+            values.push(supervisorId);
         }
 
         const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -87,7 +92,10 @@ class EmployeeRepository {
 
   sup_u.first_name || ' ' || sup_u.last_name AS supervisor_name,
 
-  gs_u.first_name || ' ' || gs_u.last_name AS general_supervisor_name
+  gs_u.first_name || ' ' || gs_u.last_name AS general_supervisor_name,
+  
+  e.supervisor_id,
+  e.branch_id
 
 
 FROM employees e
@@ -153,7 +161,7 @@ ORDER BY name
         return rows
     }
 
-    async count({ search, role } = {}) {
+    async count({ search, role, supervisorId } = {}) {
         let conditions = [];
         let values = [];
         let idx = 1;
@@ -167,6 +175,11 @@ ORDER BY name
         if (role && role !== 'ALL') {
             conditions.push(`r.name = $${idx++}`);
             values.push(role);
+        }
+
+        if (supervisorId) {
+            conditions.push(`e.supervisor_id = $${idx++}`);
+            values.push(supervisorId);
         }
 
         const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';

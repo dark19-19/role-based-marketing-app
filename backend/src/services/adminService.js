@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const { randomUUID } = require('crypto');
 const adminRepo = require('../data/adminRepository');
 const userRepo = require('../data/userRepository');
+const employeeRepo = require('../data/employeeRepository');
 const { buildAccessToken } = require('../helpers/JWTHelper');
 const { isString} = require('../helpers/GeneralHelper');
 const authRepo = require("../data/authRepository");
@@ -71,13 +72,38 @@ async registerAdmin({first_name, last_name, phone ,password }){
     };
   }
 
-  async createUser({first_name,last_name, phone, password, role, branch_id, supervisor_id }) {
+  async createUser(currentUser, {first_name, last_name, phone, password, role, branch_id, supervisor_id }) {
 
     first_name = isString(first_name, "يرجى إدخال اسم أول صحيح");
     last_name = isString(last_name, "يرجى إدخال اسم ثاني صحيح")
   phone = isString(phone,'رقم الهاتف مطلوب');
-  password = isString(password,'رقم الهاتف مطلوب');
+  password = isString(password,'كلمة المرور مطلوبة');
   role = isString(role,'الدور مطلوب');
+
+  // Role visibility & permission check
+  const creatorRole = currentUser.role;
+  const targetRole = role;
+
+  if (creatorRole !== 'ADMIN') {
+      const allowedRoles = {
+          'GENERAL_SUPERVISOR': ['SUPERVISOR', 'MARKETER'],
+          'SUPERVISOR': ['MARKETER']
+      };
+
+      if (!allowedRoles[creatorRole] || !allowedRoles[creatorRole].includes(targetRole)) {
+          throw new Error('ليس لديك صلاحية لانشاء هذا الدور');
+      }
+
+      // Automatically assign supervisor if the creator is supervisor/general_supervisor
+      // and they are adding a marketer (unless already specified by general_supervisor)
+      if (creatorRole === 'SUPERVISOR' && targetRole === 'MARKETER') {
+          const creatorEmployee = await employeeRepo.findByUserId(currentUser.id);
+          if (!creatorEmployee) {
+              throw new Error('لم يتم العثور على بيانات الموظف الخاصة بك كمشرف');
+          }
+          supervisor_id = creatorEmployee.id;
+      }
+  }
 
     const existing = await authRepo.findUserByPhone(phone);
 

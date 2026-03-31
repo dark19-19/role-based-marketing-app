@@ -92,16 +92,16 @@ class EmployeeService {
 
     }
 
-    async listEmployees ({limit, page, search, role}) {
+    async listEmployees ({limit, page, search, role, supervisorId}) {
         try {
             page = Number(page) || 1;
             limit = Number(limit) || 20;
 
             const offset = (page - 1) * limit;
 
-            const employees = await employeeRepo.getEmployees({limit, offset, search, role});
+            const employees = await employeeRepo.getEmployees({limit, offset, search, role, supervisorId});
 
-            const total = await employeeRepo.count({search, role})
+            const total = await employeeRepo.count({search, role, supervisorId})
 
             return {
                 data: employees,
@@ -278,6 +278,50 @@ class EmployeeService {
 
         });
 
+    }
+
+    async getHierarchy(rootId) {
+        try {
+            // Fetch all employees to build the tree in memory
+            const { data: allEmployees } = await this.listEmployees({ limit: 1000, page: 1 });
+            
+            // Map to the format needed for the tree
+            const mappedEmployees = allEmployees.map(e => ({
+                id: e.id,
+                name: e.name,
+                role: e.role,
+                phone: e.phone,
+                status: e.is_active ? 'ACTIVE' : 'INACTIVE',
+                supervisorId: e.supervisor_id || null
+            }));
+
+            const buildTree = (parentId) => {
+                return mappedEmployees
+                    .filter(e => e.supervisorId === parentId)
+                    .map(e => ({
+                        employee: e,
+                        subordinates: buildTree(e.id)
+                    }));
+            };
+
+            if (rootId) {
+                const root = mappedEmployees.find(e => e.id === rootId);
+                if (!root) throw new Error('الموظف غير موجود');
+                return [{
+                    employee: root,
+                    subordinates: buildTree(root.id)
+                }];
+            } else {
+                // Find top-level employees
+                const topLevel = mappedEmployees.filter(e => !e.supervisorId || e.role === 'BRANCH_MANAGER' || e.role === 'GENERAL_SUPERVISOR');
+                return topLevel.map(e => ({
+                    employee: e,
+                    subordinates: buildTree(e.id)
+                }));
+            }
+        } catch (err) {
+            throw err;
+        }
     }
 
 }

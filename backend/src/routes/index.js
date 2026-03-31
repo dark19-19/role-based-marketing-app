@@ -27,10 +27,10 @@ router.use('/api', productImageRoutes);
 router.use('/api', roleRoutes);
 router.use('/api', authRoutes);
 router.use('/api', adminRoutes);
+router.use('/api', employeeRoutes);
 router.use('/api', productRoutes);
 router.use('/api', orderRoutes);
 router.use('/api', commissionRoutes);
-router.use('/api', employeeRoutes);
 
 
 module.exports = router;

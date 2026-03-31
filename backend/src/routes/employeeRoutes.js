@@ -9,7 +9,7 @@ const requireRole = require('../middleware/roleMiddleware');
 router.post(
     '/employees',
     authMiddleware,
-    requireRole(['ADMIN']),
+    requireRole(['ADMIN','GENERAL_SUPERVISOR', 'SUPERVISOR']),
     employeeController.create
 );
 
@@ -21,9 +21,16 @@ router.get(
 );
 
 router.get(
+    '/employees/hierarchy',
+    authMiddleware,
+    requireRole(['ADMIN', 'BRANCH_MANAGER', 'GENERAL_SUPERVISOR', 'SUPERVISOR']),
+    employeeController.getHierarchy
+);
+
+router.get(
     '/employees/:id',
     authMiddleware,
-    requireRole(['ADMIN']),
+    requireRole(['ADMIN', 'BRANCH_MANAGER', 'GENERAL_SUPERVISOR', 'SUPERVISOR']),
     employeeController.getDetails
 );
 
