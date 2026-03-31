@@ -32,11 +32,13 @@ class EmployeeController {
 
     list = async (req, res) => {
         try {
-            const { page, limit } = req.query;
+            const { page, limit, search, role } = req.query;
 
             const result = await employeeService.listEmployees({
                 page,
-                limit
+                limit,
+                search,
+                role
             });
 
             res.json({

@@ -55,8 +55,25 @@ class EmployeeRepository {
 
     }
 
-    async getEmployees({limit, offset}){
-        const {rows} = await db.query(`
+    async getEmployees({limit, offset, search, role}){
+        let conditions = [];
+        let values = [];
+        let idx = 1;
+
+        if (search) {
+            conditions.push(`(u.first_name || ' ' || u.last_name ILIKE $${idx} OR u.phone ILIKE $${idx})`);
+            values.push(`%${search}%`);
+            idx++;
+        }
+
+        if (role && role !== 'ALL') {
+            conditions.push(`r.name = $${idx++}`);
+            values.push(role);
+        }
+
+        const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+        const sql = `
             SELECT
     e.id,
   u.first_name || ' ' || u.last_name AS name,
@@ -124,21 +141,46 @@ END
 LEFT JOIN users gs_u
 ON gs_u.id = gs_e.user_id
 
-ORDER BY name
-            LIMIT $1 OFFSET $2
-        `, [limit, offset])
+${whereClause}
 
+ORDER BY name
+            LIMIT $${idx++} OFFSET $${idx}
+        `;
+
+        values.push(limit, offset);
+
+        const {rows} = await db.query(sql, values);
         return rows
     }
 
-    async count() {
+    async count({ search, role } = {}) {
+        let conditions = [];
+        let values = [];
+        let idx = 1;
 
-        const { rows } = await db.query(
-            `SELECT COUNT(*)::int as count FROM employees`
-        );
+        if (search) {
+            conditions.push(`(u.first_name || ' ' || u.last_name ILIKE $${idx} OR u.phone ILIKE $${idx})`);
+            values.push(`%${search}%`);
+            idx++;
+        }
 
+        if (role && role !== 'ALL') {
+            conditions.push(`r.name = $${idx++}`);
+            values.push(role);
+        }
+
+        const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+        const sql = `
+            SELECT COUNT(*)::int as count 
+            FROM employees e
+            JOIN users u ON u.id = e.user_id
+            JOIN roles r ON r.id = u.role_id
+            ${whereClause}
+        `;
+
+        const { rows } = await db.query(sql, values);
         return rows[0].count;
-
     }
     async findById(id) {
 

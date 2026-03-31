@@ -92,16 +92,16 @@ class EmployeeService {
 
     }
 
-    async listEmployees ({limit, page}) {
+    async listEmployees ({limit, page, search, role}) {
         try {
-            page = Number(page);
-            limit = Number(limit);
+            page = Number(page) || 1;
+            limit = Number(limit) || 20;
 
             const offset = (page - 1) * limit;
 
-            const employees = await employeeRepo.getEmployees({limit, offset});
+            const employees = await employeeRepo.getEmployees({limit, offset, search, role});
 
-            const total = await employeeRepo.count()
+            const total = await employeeRepo.count({search, role})
 
             return {
                 data: employees,
