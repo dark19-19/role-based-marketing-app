@@ -1,44 +1,28 @@
-const db = require('../helpers/DBHelper');
+const db = require("../helpers/DBHelper");
 
 class EmployeeRepository {
-
-    async create({
-                     id,
-                     userId,
-                     branchId,
-                     supervisorId
-                 }) {
-
-        const sql = `
+  async create({ id, userId, branchId, supervisorId }) {
+    const sql = `
       INSERT INTO employees
       (id, user_id, branch_id, supervisor_id)
       VALUES ($1,$2,$3,$4)
     `;
 
-        await db.query(sql, [
-            id,
-            userId,
-            branchId,
-            supervisorId
-        ]);
+    await db.query(sql, [id, userId, branchId, supervisorId]);
+  }
 
-    }
+  async findByUserId(userId) {
+    const { rows } = await db.query(
+      `SELECT * FROM employees WHERE user_id = $1`,
+      [userId],
+    );
 
-    async findByUserId(userId) {
+    return rows[0] || null;
+  }
 
-        const { rows } = await db.query(
-            `SELECT * FROM employees WHERE user_id = $1`,
-            [userId]
-        );
-
-        return rows[0] || null;
-
-    }
-
-    async findEmployeeWithRole(employeeId) {
-
-        const { rows } = await db.query(
-            `
+  async findEmployeeWithRole(employeeId) {
+    const { rows } = await db.query(
+      `
     SELECT
       e.id,
       e.branch_id,
@@ -48,37 +32,45 @@ class EmployeeRepository {
     JOIN roles r ON r.id = u.role_id
     WHERE e.id = $1
     `,
-            [employeeId]
-        );
+      [employeeId],
+    );
 
-        return rows[0] || null;
+    return rows[0] || null;
+  }
 
+  async getEmployees({ limit, offset, search, role, supervisorId, branchId }) {
+    let conditions = [];
+    let values = [];
+    let idx = 1;
+
+    if (search) {
+      conditions.push(
+        `(u.first_name || ' ' || u.last_name ILIKE $${idx} OR u.phone ILIKE $${idx})`,
+      );
+      values.push(`%${search}%`);
+      idx++;
     }
 
-    async getEmployees({limit, offset, search, role, supervisorId}){
-        let conditions = [];
-        let values = [];
-        let idx = 1;
+    if (role && role !== "ALL") {
+      conditions.push(`r.name = $${idx++}`);
+      values.push(role);
+    }
 
-        if (search) {
-            conditions.push(`(u.first_name || ' ' || u.last_name ILIKE $${idx} OR u.phone ILIKE $${idx})`);
-            values.push(`%${search}%`);
-            idx++;
-        }
+    if (supervisorId) {
+      conditions.push(`e.supervisor_id = $${idx++}`);
+      values.push(supervisorId);
+    }
 
-        if (role && role !== 'ALL') {
-            conditions.push(`r.name = $${idx++}`);
-            values.push(role);
-        }
+    if (branchId) {
+      conditions.push(`e.branch_id = $${idx++}`);
+      values.push(branchId);
+    }
 
-        if (supervisorId) {
-            conditions.push(`e.supervisor_id = $${idx++}`);
-            values.push(supervisorId);
-        }
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
 
-        const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-
-        const sql = `
+    const sql = `
             SELECT
     e.id,
   u.first_name || ' ' || u.last_name AS name,
@@ -155,36 +147,45 @@ ORDER BY name
             LIMIT $${idx++} OFFSET $${idx}
         `;
 
-        values.push(limit, offset);
+    values.push(limit, offset);
 
-        const {rows} = await db.query(sql, values);
-        return rows
+    const { rows } = await db.query(sql, values);
+    return rows;
+  }
+
+  async count({ search, role, supervisorId, branchId } = {}) {
+    let conditions = [];
+    let values = [];
+    let idx = 1;
+
+    if (search) {
+      conditions.push(
+        `(u.first_name || ' ' || u.last_name ILIKE $${idx} OR u.phone ILIKE $${idx})`,
+      );
+      values.push(`%${search}%`);
+      idx++;
     }
 
-    async count({ search, role, supervisorId } = {}) {
-        let conditions = [];
-        let values = [];
-        let idx = 1;
+    if (role && role !== "ALL") {
+      conditions.push(`r.name = $${idx++}`);
+      values.push(role);
+    }
 
-        if (search) {
-            conditions.push(`(u.first_name || ' ' || u.last_name ILIKE $${idx} OR u.phone ILIKE $${idx})`);
-            values.push(`%${search}%`);
-            idx++;
-        }
+    if (supervisorId) {
+      conditions.push(`e.supervisor_id = $${idx++}`);
+      values.push(supervisorId);
+    }
 
-        if (role && role !== 'ALL') {
-            conditions.push(`r.name = $${idx++}`);
-            values.push(role);
-        }
+    if (branchId) {
+      conditions.push(`e.branch_id = $${idx++}`);
+      values.push(branchId);
+    }
 
-        if (supervisorId) {
-            conditions.push(`e.supervisor_id = $${idx++}`);
-            values.push(supervisorId);
-        }
+    const whereClause = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
 
-        const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-
-        const sql = `
+    const sql = `
             SELECT COUNT(*)::int as count 
             FROM employees e
             JOIN users u ON u.id = e.user_id
@@ -192,42 +193,39 @@ ORDER BY name
             ${whereClause}
         `;
 
-        const { rows } = await db.query(sql, values);
-        return rows[0].count;
-    }
-    async findById(id) {
-
-        const { rows } = await db.query(
-            `
+    const { rows } = await db.query(sql, values);
+    return rows[0].count;
+  }
+  async findById(id) {
+    const { rows } = await db.query(
+      `
     SELECT *
     FROM employees
     WHERE id = $1
     `,
-            [id]
-        );
+      [id],
+    );
 
-        return rows[0] || null;
-
-    }
-    async findAdmin() {
-
-        const { rows } = await db.query(
-            `
+    return rows[0] || null;
+  }
+  async findAdmin() {
+    const { rows } = await db.query(
+      `
     SELECT *
     FROM employees e
     JOIN users u ON u.id = e.user_id
     JOIN roles r ON r.id = u.role_id
     WHERE r.name = 'ADMIN'
     LIMIT 1
-    `
-        );
+    `,
+    );
 
-        return rows[0] || null;
+    return rows[0] || null;
+  }
 
-    }
-
-    async getEmployeeDetails(employeeId) {
-        const { rows } = await db.query(`
+  async getEmployeeDetails(employeeId) {
+    const { rows } = await db.query(
+      `
             SELECT
                 e.id,
                 e.user_id,
@@ -249,13 +247,16 @@ ORDER BY name
             LEFT JOIN branches b ON b.id = e.branch_id
             LEFT JOIN governorates g ON g.id = b.governorate_id
             WHERE e.id = $1
-        `, [employeeId]);
+        `,
+      [employeeId],
+    );
 
-        return rows[0] || null;
-    }
+    return rows[0] || null;
+  }
 
-    async getEmployeeSupervisor(employeeId) {
-        const { rows } = await db.query(`
+  async getEmployeeSupervisor(employeeId) {
+    const { rows } = await db.query(
+      `
             SELECT
                 sup_e.id,
                 sup_u.first_name || ' ' || sup_u.last_name AS supervisor_name,
@@ -265,13 +266,16 @@ ORDER BY name
             LEFT JOIN users sup_u ON sup_u.id = sup_e.user_id
             LEFT JOIN roles sup_r ON sup_r.id = sup_u.role_id
             WHERE e.id = $1
-        `, [employeeId]);
+        `,
+      [employeeId],
+    );
 
-        return rows[0] || null;
-    }
+    return rows[0] || null;
+  }
 
-    async getEmployeeGeneralSupervisor(employeeId) {
-        const { rows } = await db.query(`
+  async getEmployeeGeneralSupervisor(employeeId) {
+    const { rows } = await db.query(
+      `
             SELECT
                 gs_e.id,
                 gs_u.first_name || ' ' || gs_u.last_name AS general_supervisor_name,
@@ -296,13 +300,16 @@ ORDER BY name
             LEFT JOIN roles gs_r ON gs_r.id = gs_u.role_id
 
             WHERE e.id = $1
-        `, [employeeId]);
+        `,
+      [employeeId],
+    );
 
-        return rows[0] || null;
-    }
+    return rows[0] || null;
+  }
 
-    async getEmployeeOrders(employeeId) {
-        const { rows } = await db.query(`
+  async getEmployeeOrders(employeeId) {
+    const { rows } = await db.query(
+      `
             SELECT
                 o.id,
                 o.status,
@@ -321,23 +328,29 @@ ORDER BY name
             LEFT JOIN governorates g ON g.id = c.governorate_id
             WHERE o.marketer_id = $1
             ORDER BY o.created_at DESC
-        `, [employeeId]);
+        `,
+      [employeeId],
+    );
 
-        return rows;
-    }
+    return rows;
+  }
 
-    async getEmployeeOrdersCount(employeeId) {
-        const { rows } = await db.query(`
+  async getEmployeeOrdersCount(employeeId) {
+    const { rows } = await db.query(
+      `
             SELECT COUNT(*)::int AS order_count
             FROM orders
             WHERE marketer_id = $1
-        `, [employeeId]);
+        `,
+      [employeeId],
+    );
 
-        return rows[0].order_count;
-    }
+    return rows[0].order_count;
+  }
 
-    async getEmployeeCustomers(employeeId) {
-        const { rows } = await db.query(`
+  async getEmployeeCustomers(employeeId) {
+    const { rows } = await db.query(
+      `
             SELECT
                 c.id,
                 c.created_at,
@@ -352,24 +365,29 @@ ORDER BY name
             LEFT JOIN governorates g ON g.id = c.governorate_id
             WHERE c.referred_by = $1
             ORDER BY c.created_at DESC
-        `, [employeeId]);
+        `,
+      [employeeId],
+    );
 
-        return rows;
-    }
+    return rows;
+  }
 
-    async getEmployeeSalarySum(employeeId) {
-        const { rows } = await db.query(`
+  async getEmployeeSalarySum(employeeId) {
+    const { rows } = await db.query(
+      `
             SELECT COALESCE(SUM(amount), 0)::numeric AS total_salary
             FROM wallet_transactions
             WHERE employee_id = $1
-        `, [employeeId]);
+        `,
+      [employeeId],
+    );
 
-        return parseFloat(rows[0].total_salary);
-    }
+    return parseFloat(rows[0].total_salary);
+  }
 
-    async findByIdWithUser(employeeId) {
-
-        const { rows } = await db.query(`
+  async findByIdWithUser(employeeId) {
+    const { rows } = await db.query(
+      `
     SELECT
       e.id,
       e.branch_id,
@@ -379,40 +397,43 @@ ORDER BY name
     FROM employees e
     JOIN users u ON u.id = e.user_id
     WHERE e.id = $1
-  `, [employeeId]);
+  `,
+      [employeeId],
+    );
 
-        return rows[0] || null;
+    return rows[0] || null;
+  }
 
-    }
-
-    async updateBranch(employeeId, branchId, client) {
-
-        await client.query(`
+  async updateBranch(employeeId, branchId, client) {
+    await client.query(
+      `
     UPDATE employees
     SET branch_id = $2
     WHERE id = $1
-  `, [employeeId, branchId]);
-
-    }
-    async updatePhone(userId, phone, client) {
-
-        await client.query(`
+  `,
+      [employeeId, branchId],
+    );
+  }
+  async updatePhone(userId, phone, client) {
+    await client.query(
+      `
     UPDATE users
     SET phone = $2
     WHERE id = $1
-  `, [userId, phone]);
-
-    }
-    async updatePassword(userId, passwordHash, client) {
-
-        await client.query(`
+  `,
+      [userId, phone],
+    );
+  }
+  async updatePassword(userId, passwordHash, client) {
+    await client.query(
+      `
     UPDATE users
     SET password = $2
     WHERE id = $1
-  `, [userId, passwordHash]);
-
-    }
-
+  `,
+      [userId, passwordHash],
+    );
+  }
 }
 
 module.exports = new EmployeeRepository();
