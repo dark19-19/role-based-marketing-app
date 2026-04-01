@@ -11,4 +11,6 @@ router.get('/auth/me', authMiddleware, authController.me);
 
 router.post('/auth/logout', authMiddleware, authController.logout);
 
+router.patch('/auth/profile', authMiddleware, authController.updateProfile);
+
 module.exports = router;

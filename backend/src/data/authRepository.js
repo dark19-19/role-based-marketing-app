@@ -6,6 +6,8 @@ class AuthRepository {
         const sql = `
       SELECT 
         u.id,
+        u.first_name,
+        u.last_name,
         u.phone,
         u.password,
         u.is_active,
@@ -48,6 +50,8 @@ class AuthRepository {
         const sql = `
       SELECT 
         u.id,
+        u.first_name,
+        u.last_name,
         u.phone,
         u.is_active,
         r.name as role,
@@ -59,6 +63,17 @@ class AuthRepository {
       WHERE u.id = $1
     `;
         const { rows } = await db.query(sql, [user_id]);
+        return rows[0] || null;
+    }
+
+    async updateName(userId, firstName, lastName) {
+        const sql = `
+            UPDATE users
+            SET first_name = $2, last_name = $3, updated_at = NOW()
+            WHERE id = $1
+            RETURNING id, first_name, last_name, phone
+        `;
+        const { rows } = await db.query(sql, [userId, firstName, lastName]);
         return rows[0] || null;
     }
 }

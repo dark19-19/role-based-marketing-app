@@ -1,5 +1,5 @@
-const { Pool } = require('pg');
-const config = require('../config');
+const { Pool } = require("pg");
+const config = require("../config");
 
 class DBHelper {
   constructor() {
@@ -18,12 +18,14 @@ class DBHelper {
   async runInTransaction(cb) {
     const client = await this.getClient();
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
       const result = await cb(client);
-      await client.query('COMMIT');
+      await client.query("COMMIT");
       return result;
     } catch (err) {
-      try { await client.query('ROLLBACK'); } catch (_) {}
+      try {
+        await client.query("ROLLBACK");
+      } catch (_) {}
       throw err;
     } finally {
       client.release();
@@ -31,7 +33,7 @@ class DBHelper {
   }
 
   sanitizeString(input) {
-    if (typeof input !== 'string') return '';
+    if (typeof input !== "string") return "";
     return input.trim();
   }
 

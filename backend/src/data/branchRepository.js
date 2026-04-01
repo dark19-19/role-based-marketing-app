@@ -10,18 +10,6 @@ class BranchRepository {
     await db.query(sql, [id, governorate_id]);
   }
 
-  async updateStatus({ id, status }) {
-    const sql = `
-      UPDATE branches
-      SET
-        status = $2
-      WHERE id = $1
-    `;
-
-    const { rowCount } = await db.query(sql, [id, governorate_id]);
-
-    return rowCount > 0;
-  }
 
   async delete(id) {
     const { rowCount } = await db.query(`DELETE FROM branches WHERE id = $1`, [
@@ -84,6 +72,7 @@ class BranchRepository {
       `
             SELECT
                 b.id,
+                b.is_active,
                 g.name AS governorate,
                 g.id AS governorate_id,
                 bm_user.first_name || ' ' || bm_user.last_name AS manager_name,
@@ -158,16 +147,16 @@ class BranchRepository {
 
   async getBranchManager(branch_id) {
     const sql = `
-      SELECT u.id as user_id, e.id as employee_id 
+      SELECT u.id as user_id
       FROM employees e 
       INNER JOIN users u ON e.user_id = u.id
       INNER JOIN roles r ON r.id = u.role_id
       WHERE e.branch_id = $1 
       AND r.name = 'BRANCH_MANAGER'
       LIMIT 1
-    `
+    `;
     const { rows } = await db.query(sql, [branch_id]);
-    return rows[0];
+    return rows[0]?.user_id || null; // Return only the user_id or null
   }
 }
 

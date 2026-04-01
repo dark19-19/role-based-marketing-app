@@ -88,6 +88,23 @@ class AuthController {
   }
 
 
+  updateProfile = async (req, res) => {
+    try {
+      const { first_name, last_name } = req.body || {};
+      const result = await authService.updateProfile({
+        userId: req.user.id,
+        first_name,
+        last_name,
+      });
+      res.status(200).json({
+        success: true,
+        body: result,
+        message: 'تم تحديث بيانات الملف الشخصي بنجاح',
+      });
+    } catch (err) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  }
 
 }
 

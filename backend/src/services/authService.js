@@ -51,6 +51,7 @@ class AuthService {
 
       return {
         id: user.id,
+        name: `${user.first_name} ${user.last_name}`.trim(),
         phone: user.phone,
         role: user.role,
         employee_id: user.employee_id,
@@ -134,6 +135,7 @@ class AuthService {
 
       return {
         id: user.id,
+        name: `${user.first_name} ${user.last_name}`.trim(),
         phone: user.phone,
         role: user.role,
         is_active: user.is_active,
@@ -145,6 +147,24 @@ class AuthService {
       throw err;
     }
 
+  }
+
+  async updateProfile({ userId, first_name, last_name }) {
+    try {
+      if (!first_name || !first_name.trim()) throw new Error('الاسم الأول مطلوب');
+      if (!last_name || !last_name.trim()) throw new Error('الاسم الأخير مطلوب');
+
+      const updated = await authRepo.updateName(userId, first_name.trim(), last_name.trim());
+      if (!updated) throw new Error('المستخدم غير موجود');
+
+      return {
+        name: `${updated.first_name} ${updated.last_name}`.trim(),
+        first_name: updated.first_name,
+        last_name: updated.last_name,
+      };
+    } catch (err) {
+      throw err;
+    }
   }
   async logout({ userId, token }) {
 
