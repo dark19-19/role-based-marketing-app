@@ -1,7 +1,6 @@
-const db = require('../helpers/DBHelper');
+const db = require("../helpers/DBHelper");
 
 class UserRepository {
-
   async findById(id) {
     const sql = `SELECT * FROM users WHERE id = $1`;
     const { rows } = await db.query(sql, [id]);
@@ -24,9 +23,8 @@ class UserRepository {
     await db.query(sql, [token]);
   }
 
-
-  async findAllUsers({ limit, offset, order = 'DESC' }) {
-    const validOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+  async findAllUsers({ limit, offset, order = "DESC" }) {
+    const validOrder = order.toUpperCase() === "ASC" ? "ASC" : "DESC";
     const sql = `
 SELECT u.id, u.first_name, u.last_name, u.phone, r.name AS role
 FROM users u
@@ -55,25 +53,40 @@ LIMIT $1 OFFSET $2
     const { rows } = await db.query(sql, [`%${query}%`]);
     return rows;
   }
-async findUserByPhone(phone){
+  async findUserByPhone(phone) {
     const result = await db.query(
       `SELECT id, phone FROM users WHERE phone = $1 LIMIT 1`,
-      [phone]
+      [phone],
     );
 
     return result.rows[0];
   }
 
-  async createUser({ id, first_name,last_name,phone, passwordHash, role_id }){
+  async createUser({
+    id,
+    first_name,
+    last_name,
+    phone,
+    passwordHash,
+    role_id,
+  }) {
     await db.query(
       `INSERT INTO users (id, first_name,last_name,phone, password, role_id)
        VALUES ($1,$2,$3,$4,$5,$6)`,
-      [id, first_name,last_name,phone, passwordHash, role_id]
+      [id, first_name, last_name, phone, passwordHash, role_id],
     );
   }
 
+  async updatePassword(userId, passwordHash) {
+    const sql = `UPDATE users SET password = $2, updated_at = NOW() WHERE id = $1 RETURNING id, first_name, last_name, phone`;
+    const { rows } = await db.query(sql, [userId, passwordHash]);
+    return rows[0] || null;
+  }
 
-  
+  async revokeAllTokensForUser(userId) {
+    const sql = `UPDATE jwt_tokens SET revoked = TRUE WHERE user_id = $1`;
+    await db.query(sql, [userId]);
+  }
 }
 
 module.exports = new UserRepository();

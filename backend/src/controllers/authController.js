@@ -1,33 +1,29 @@
-const authService = require('../services/authService');
+const authService = require("../services/authService");
 
 class AuthController {
   registerCustomer = async (req, res) => {
     try {
-
-      const {first_name, last_name, phone, password } = req.body || {};
+      const { first_name, last_name, phone, password } = req.body || {};
 
       const result = await authService.registerCustomer({
         first_name,
         last_name,
         phone,
-        password
+        password,
       });
 
       res.status(201).json({
         success: true,
         body: result,
-        message: "تم إنشاء الحساب بنجاح"
+        message: "تم إنشاء الحساب بنجاح",
       });
-
     } catch (err) {
-
       res.status(400).json({
         success: false,
-        message: err.message
+        message: err.message,
       });
-
     }
-  }
+  };
 
   login = async (req, res) => {
     try {
@@ -37,56 +33,43 @@ class AuthController {
     } catch (err) {
       res.status(400).json({ success: false, error: err.message });
     }
-  }
+  };
 
   me = async (req, res) => {
-
     try {
-
       const result = await authService.me(req.user.id);
 
       res.status(200).json({
         success: true,
         body: result,
-        message: "تم جلب بيانات المستخدم"
+        message: "تم جلب بيانات المستخدم",
       });
-
     } catch (err) {
-
       res.status(404).json({
         success: false,
-        message: err.message
+        message: err.message,
       });
-
     }
-
-  }
+  };
   logout = async (req, res) => {
-
     try {
-
       const result = await authService.logout({
         userId: req.user.id,
-        token: req.user.token
+        token: req.user.token,
       });
 
       res.status(200).json({
         success: true,
         body: result,
-        message: "تم تسجيل الخروج بنجاح"
+        message: "تم تسجيل الخروج بنجاح",
       });
-
     } catch (err) {
-
       res.status(400).json({
         success: false,
-        message: err.message
+        message: err.message,
       });
-
     }
-
-  }
-
+  };
 
   updateProfile = async (req, res) => {
     try {
@@ -99,13 +82,28 @@ class AuthController {
       res.status(200).json({
         success: true,
         body: result,
-        message: 'تم تحديث بيانات الملف الشخصي بنجاح',
+        message: "تم تحديث بيانات الملف الشخصي بنجاح",
       });
     } catch (err) {
       res.status(400).json({ success: false, message: err.message });
     }
-  }
+  };
 
+  changePassword = async (req, res) => {
+    try {
+      const { oldPassword, newPassword } = req.body || {};
+      const result = await authService.changePassword({
+        userId: req.user.id,
+        oldPassword,
+        newPassword,
+      });
+      res
+        .status(200)
+        .json({ success: true, body: result, message: "تم تغيير كلمة المرور" });
+    } catch (err) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  };
 }
 
 module.exports = new AuthController();

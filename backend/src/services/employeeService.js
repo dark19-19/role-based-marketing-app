@@ -165,6 +165,8 @@ class EmployeeService {
       return {
         // Employee basic info
         id: employee.id,
+        // expose the underlying user id so admin can target the user's account
+        user_id: employee.user_id,
         full_name: `${employee.first_name} ${employee.last_name}`,
         phone: employee.phone,
         is_active: employee.is_active,

@@ -1,40 +1,37 @@
-const bcrypt = require('bcrypt');
-const { randomUUID } = require('crypto');
-const authRepo = require('../data/authRepository');
-const userRepo = require('../data/userRepository');
-const { buildAccessToken } = require('../helpers/JWTHelper');
-const { isString } = require('../helpers/GeneralHelper');
-const roleRepo = require('../data/roleRepository');
+const bcrypt = require("bcrypt");
+const { randomUUID } = require("crypto");
+const authRepo = require("../data/authRepository");
+const userRepo = require("../data/userRepository");
+const { buildAccessToken } = require("../helpers/JWTHelper");
+const { isString } = require("../helpers/GeneralHelper");
+const roleRepo = require("../data/roleRepository");
 
 class AuthService {
-
-  async login({phone, password}) {
-
+  async login({ phone, password }) {
     try {
-
-      phone = isString(phone, 'رقم الهاتف مطلوب');
-      password = isString(password, 'كلمة المرور مطلوبة');
+      phone = isString(phone, "رقم الهاتف مطلوب");
+      password = isString(password, "كلمة المرور مطلوبة");
 
       const user = await authRepo.findUserByPhone(phone);
 
       if (!user) {
-        throw new Error('بيانات تسجيل الدخول غير صحيحة');
+        throw new Error("بيانات تسجيل الدخول غير صحيحة");
       }
 
       if (!user.is_active) {
-        throw new Error('الحساب غير مفعل');
+        throw new Error("الحساب غير مفعل");
       }
 
       const ok = await bcrypt.compare(password, user.password);
 
       if (!ok) {
-        throw new Error('بيانات تسجيل الدخول غير صحيحة');
+        throw new Error("بيانات تسجيل الدخول غير صحيحة");
       }
 
       const token = buildAccessToken({
         id: user.id,
         phone: user.phone,
-        role: user.role
+        role: user.role,
       });
 
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000 * 3 * 24);
@@ -44,10 +41,10 @@ class AuthService {
         user_id: user.id,
         token,
         expiresAt,
-        revoked: false
+        revoked: false,
       });
 
-      await authRepo.setLastLogin(phone)
+      await authRepo.setLastLogin(phone);
 
       return {
         id: user.id,
@@ -56,33 +53,30 @@ class AuthService {
         role: user.role,
         employee_id: user.employee_id,
         branch_id: user.branch_id,
-        token
+        token,
       };
-
     } catch (err) {
       throw err;
     }
-
   }
 
-  async registerCustomer({first_name, last_name, phone, password }) {
-
+  async registerCustomer({ first_name, last_name, phone, password }) {
     try {
       first_name = isString(first_name, "يرجى إدخال اسم أول صحيح");
-      last_name = isString(last_name, "يرجى إدخال اسم ثاني صحيح")
-      phone = isString(phone, 'رقم الهاتف مطلوب');
-      password = isString(password, 'كلمة المرور مطلوبة');
+      last_name = isString(last_name, "يرجى إدخال اسم ثاني صحيح");
+      phone = isString(phone, "رقم الهاتف مطلوب");
+      password = isString(password, "كلمة المرور مطلوبة");
 
       const existing = await authRepo.findUserByPhone(phone);
 
       if (existing) {
-        throw new Error('رقم الهاتف مستخدم مسبقاً');
+        throw new Error("رقم الهاتف مستخدم مسبقاً");
       }
 
-      const role = await roleRepo.findByName('CUSTOMER');
+      const role = await roleRepo.findByName("CUSTOMER");
 
       if (!role) {
-        throw new Error('دور العميل غير موجود');
+        throw new Error("دور العميل غير موجود");
       }
 
       const hash = await bcrypt.hash(password, 10);
@@ -94,13 +88,13 @@ class AuthService {
         last_name,
         phone,
         passwordHash: hash,
-        role_id: role.id
+        role_id: role.id,
       });
 
       const token = buildAccessToken({
         id,
         phone,
-        role: 'CUSTOMER'
+        role: "CUSTOMER",
       });
 
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000 * 3 * 24);
@@ -110,27 +104,24 @@ class AuthService {
         user_id: id,
         token,
         expiresAt,
-        revoked: false
+        revoked: false,
       });
 
       return {
         id,
         phone,
-        role: 'CUSTOMER',
-        token
+        role: "CUSTOMER",
+        token,
       };
-
     } catch (err) {
       throw err;
     }
-
   }
   async me(user_id) {
-
     try {
-      const user = await authRepo.me(user_id)
+      const user = await authRepo.me(user_id);
       if (!user) {
-        throw new Error('المستخدم غير موجود');
+        throw new Error("المستخدم غير موجود");
       }
 
       return {
@@ -140,22 +131,26 @@ class AuthService {
         role: user.role,
         is_active: user.is_active,
         employee_id: user.employee_id,
-        branch_id: user.branch_id
+        branch_id: user.branch_id,
       };
-
     } catch (err) {
       throw err;
     }
-
   }
 
   async updateProfile({ userId, first_name, last_name }) {
     try {
-      if (!first_name || !first_name.trim()) throw new Error('الاسم الأول مطلوب');
-      if (!last_name || !last_name.trim()) throw new Error('الاسم الأخير مطلوب');
+      if (!first_name || !first_name.trim())
+        throw new Error("الاسم الأول مطلوب");
+      if (!last_name || !last_name.trim())
+        throw new Error("الاسم الأخير مطلوب");
 
-      const updated = await authRepo.updateName(userId, first_name.trim(), last_name.trim());
-      if (!updated) throw new Error('المستخدم غير موجود');
+      const updated = await authRepo.updateName(
+        userId,
+        first_name.trim(),
+        last_name.trim(),
+      );
+      if (!updated) throw new Error("المستخدم غير موجود");
 
       return {
         name: `${updated.first_name} ${updated.last_name}`.trim(),
@@ -167,9 +162,7 @@ class AuthService {
     }
   }
   async logout({ userId, token }) {
-
     try {
-
       const rec = await userRepo.getTokenByValue(token);
 
       if (!rec) {
@@ -177,20 +170,62 @@ class AuthService {
       }
 
       if (rec.user_id !== userId) {
-        throw new Error('رمز المصادقة غير صالح');
+        throw new Error("رمز المصادقة غير صالح");
       }
 
       await userRepo.revokeToken(token);
 
       return {
-        message: "تم تسجيل الخروج بنجاح"
+        message: "تم تسجيل الخروج بنجاح",
       };
-
     } catch (err) {
       throw err;
     }
-
   }
 
+  async changePassword({ userId, oldPassword, newPassword }) {
+    try {
+      oldPassword = isString(oldPassword, "كلمة المرور القديمة مطلوبة");
+      newPassword = isString(newPassword, "كلمة المرور الجديدة مطلوبة");
+
+      const user = await userRepo.findById(userId);
+      if (!user) throw new Error("المستخدم غير موجود");
+
+      const ok = await bcrypt.compare(oldPassword, user.password);
+      if (!ok) throw new Error("كلمة المرور القديمة غير صحيحة");
+
+      const hash = await bcrypt.hash(newPassword, 10);
+      await userRepo.updatePassword(userId, hash);
+      // Revoke all existing tokens for this user to force logout
+      await userRepo.revokeAllTokensForUser(userId);
+
+      return { message: "تم تغيير كلمة المرور بنجاح" };
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async adminChangePassword({ adminUser, targetUserId, newPassword }) {
+    try {
+      newPassword = isString(newPassword, "كلمة المرور الجديدة مطلوبة");
+
+      // extra safety: ensure adminUser has ADMIN role
+      if (!adminUser || adminUser.role !== "ADMIN") {
+        throw new Error("ليس لديك صلاحية لتغيير كلمة سر مستخدم آخر");
+      }
+
+      const target = await userRepo.findById(targetUserId);
+      if (!target) throw new Error("المستخدم المستهدف غير موجود");
+
+      const hash = await bcrypt.hash(newPassword, 10);
+      await userRepo.updatePassword(targetUserId, hash);
+      // Revoke tokens for target user so their sessions are invalidated
+      await userRepo.revokeAllTokensForUser(targetUserId);
+
+      return { message: "تم إعادة تعيين كلمة المرور بنجاح" };
+    } catch (err) {
+      throw err;
+    }
+  }
 }
 module.exports = new AuthService();
