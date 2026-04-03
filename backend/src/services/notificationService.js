@@ -1,64 +1,50 @@
-const notificationRepo = require('../data/notificationRepository');
+const notificationRepo = require("../data/notificationRepository");
 
 class NotificationService {
+  async list(userId, page = 1, limit = 20) {
+    const offset = (page - 1) * limit;
 
-    async list(userId,page=1,limit=20){
+    const result = await notificationRepo.listPaginated(userId, limit, offset);
 
-        const offset=(page-1)*limit;
+    return {
+      data: result.data,
+      pagination: {
+        total: result.total,
+        page,
+        limit,
+        pages: Math.ceil(result.total / limit),
+      },
+    };
+  }
 
-        const result = await notificationRepo.listPaginated(
-            userId,
-            limit,
-            offset
-        );
+  async getById(id, userId) {
+    const notification = await notificationRepo.findById(id);
 
-        return {
-            data:result.data,
-            pagination:{
-                total:result.total,
-                page,
-                limit,
-                pages:Math.ceil(result.total/limit)
-            }
-        };
+    if (!notification || notification.user_id !== userId)
+      throw new Error("Notification not found");
 
-    }
+    return notification;
+  }
 
-    async getById(id,userId){
+  async markAsRead(id, userId) {
+    await notificationRepo.markAsRead(id, userId);
+  }
 
-        const notification = await notificationRepo.findById(id);
+  async markAllAsRead(userId) {
+    await notificationRepo.markAllAsRead(userId);
+  }
 
-        if(!notification || notification.user_id !== userId)
-            throw new Error('Notification not found');
+  async delete(id, userId) {
+    await notificationRepo.softDelete(id, userId);
+  }
 
-        return notification;
+  async getCount(userId) {
+    return notificationRepo.getCount(userId);
+  }
 
-    }
-
-    async markAsRead(id,userId){
-
-        await notificationRepo.markAsRead(id,userId);
-
-    }
-
-    async delete(id,userId){
-
-        await notificationRepo.softDelete(id,userId);
-
-    }
-
-    async getCount(userId){
-
-        return notificationRepo.getCount(userId);
-
-    }
-
-    async getUnreadCount(userId){
-
-        return notificationRepo.getUnreadCount(userId);
-
-    }
-
+  async getUnreadCount(userId) {
+    return notificationRepo.getUnreadCount(userId);
+  }
 }
 
 module.exports = new NotificationService();

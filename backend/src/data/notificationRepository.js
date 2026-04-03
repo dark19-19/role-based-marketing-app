@@ -139,6 +139,18 @@ class NotificationRepository {
 
     return Number(rows[0].total);
   }
+
+  async markAllAsRead(userId) {
+    await db.query(
+      `
+      UPDATE notifications
+      SET is_read = TRUE
+      WHERE user_id = $1
+      AND deleted_at IS NULL
+    `,
+      [userId],
+    );
+  }
 }
 
 module.exports = new NotificationRepository();
