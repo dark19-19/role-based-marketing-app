@@ -65,20 +65,6 @@ class CommissionController {
 
     }
 
-    async getByProductId(req, res) {
-
-        try {
-
-            const data = await commissionService.getByProductId(req.params.productId);
-
-            res.json({success: true, data});
-
-        } catch (err) {
-            res.status(400).json({success: false, message: err.message});
-        }
-
-    }
-
     async list(req, res) {
 
         try {

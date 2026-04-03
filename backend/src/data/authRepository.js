@@ -32,15 +32,6 @@ class AuthRepository {
 
         await db.query(sql, [id, first_name, last_name, phone, passwordHash, role_id]);
     }
-
-    async findRoleByName(name) {
-        const { rows } = await db.query(
-            `SELECT id FROM roles WHERE name = $1`,
-            [name]
-        );
-
-        return rows[0] || null;
-    }
     async setLastLogin(phone) {
         const sql = 'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE phone = $1 AND is_active is true';
         await db.query(sql, [phone]);

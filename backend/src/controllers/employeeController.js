@@ -144,68 +144,6 @@ class EmployeeController {
     }
   };
 
-  createSalaryRequest = async (req, res) => {
-    try {
-      const { employeeId, requestedAmount } = req.body || {};
-
-      const result = await salaryRequestService.createRequest({
-        employeeId,
-        requestedAmount,
-      });
-
-      res.status(201).json({
-        success: true,
-        body: result,
-        message: "تم إنشاء طلب الراتب بنجاح",
-      });
-    } catch (err) {
-      res.status(400).json({
-        success: false,
-        message: err.message,
-      });
-    }
-  };
-
-  getSalaryRequests = async (req, res) => {
-    try {
-      const { employeeId } = req.params;
-
-      const result =
-        await salaryRequestService.getRequestsByEmployee(employeeId);
-
-      res.json({
-        success: true,
-        body: result,
-        message: "تم جلب طلبات الراتب",
-      });
-    } catch (err) {
-      res.status(400).json({
-        success: false,
-        message: err.message,
-      });
-    }
-  };
-
-  updateSalaryRequestStatus = async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { status } = req.body || {};
-
-      const result = await salaryRequestService.updateRequestStatus(id, status);
-
-      res.json({
-        success: true,
-        body: result,
-        message: "تم تحديث حالة طلب الراتب",
-      });
-    } catch (err) {
-      res.status(400).json({
-        success: false,
-        message: err.message,
-      });
-    }
-  };
-
   async update(req, res) {
     try {
       const result = await employeeService.updateEmployee({

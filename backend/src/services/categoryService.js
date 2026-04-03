@@ -49,16 +49,6 @@ async listCategories({ page = 1, limit = 20 } = {}) {
   };
 }
 
-  async getCategory(id) {
-
-    const category = await categoryRepo.findById(id);
-    if (!category) {
-      throw new Error('category not found');
-    }
-
-    return category;
-  }
-
   async updateCategory({ id, name }) {
 
     name = isString(name, 'name is required');

@@ -204,28 +204,5 @@ class AuthService {
       throw err;
     }
   }
-
-  async adminChangePassword({ adminUser, targetUserId, newPassword }) {
-    try {
-      newPassword = isString(newPassword, "كلمة المرور الجديدة مطلوبة");
-
-      // extra safety: ensure adminUser has ADMIN role
-      if (!adminUser || adminUser.role !== "ADMIN") {
-        throw new Error("ليس لديك صلاحية لتغيير كلمة سر مستخدم آخر");
-      }
-
-      const target = await userRepo.findById(targetUserId);
-      if (!target) throw new Error("المستخدم المستهدف غير موجود");
-
-      const hash = await bcrypt.hash(newPassword, 10);
-      await userRepo.updatePassword(targetUserId, hash);
-      // Revoke tokens for target user so their sessions are invalidated
-      await userRepo.revokeAllTokensForUser(targetUserId);
-
-      return { message: "تم إعادة تعيين كلمة المرور بنجاح" };
-    } catch (err) {
-      throw err;
-    }
-  }
 }
 module.exports = new AuthService();

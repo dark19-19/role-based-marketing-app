@@ -2,23 +2,6 @@ const db = require('../helpers/DBHelper');
 
 class AdminRepository {
 
-
-  async findAdminByUsername(username){
-
-    const sql = `
-      SELECT u.id, u.username, u.password
-      FROM users u
-      JOIN roles r ON r.id = u.role_id
-      WHERE u.username=$1
-      AND r.name='ADMIN'
-      LIMIT 1
-    `;
-
-    const { rows } = await db.query(sql,[username]);
-
-    return rows[0] || null;
-  }
-
   async getUserIsAdminById(userId){
 
     const sql = `

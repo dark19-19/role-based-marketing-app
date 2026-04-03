@@ -22,15 +22,6 @@ class WalletRepository {
     }
 
     async getSummary(employeeId) {
-        // Calculate:
-        // currentBalance (where type = 'BALANCE')
-        // totalEarned (all CREDIT basically, but wait, 'BALANCE' initially, then it becomes 'REQUESTED', then 'WITHDREW'. 
-        // Actually, any transaction that came from an order commission is an earning: which means type was initially BALANCE.
-        // It's safer to say totalEarned = SUM of all amounts ever inserted for this employee (excluding reversed or whatever, but currently there are no reversals except removeTransaction which sets back to BALANCE).
-        // Let's just track currentBalance = SUM(amount) WHERE type='BALANCE'
-        // totalWithdrawn = SUM(amount) WHERE type='WITHDREW'
-        // pendingRequestsTotal = SUM(amount) WHERE type='REQUESTED'
-        // totalEarned = currentBalance + totalWithdrawn + pendingRequestsTotal
         const { rows } = await db.query(`
             SELECT 
                 COALESCE(SUM(CASE WHEN type = 'BALANCE' THEN amount ELSE 0 END), 0) as current_balance,
