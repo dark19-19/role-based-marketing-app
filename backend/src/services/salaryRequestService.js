@@ -143,6 +143,87 @@ class SalaryRequestService {
             }
         };
     }
+
+    async updateRequestRemoveTransaction(requestId, transactionId) {
+        return db.runInTransaction(async (client) => {
+            // Get the request details
+            const request = await salaryRepo.findById(requestId);
+            if (!request) {
+                throw new Error('Salary request not found');
+            }
+
+            // Check if request is still pending
+            if (request.status !== STATUS.PENDING) {
+                throw new Error('Can only remove transactions from pending requests');
+            }
+
+            // Get the transaction details
+            const transactions = await salaryRepo.getRequestTransactions(requestId);
+            const transaction = transactions.find(t => t.id === transactionId);
+            
+            if (!transaction) {
+                throw new Error('Transaction not found in this request');
+            }
+
+            // Remove the transaction from the salary_request_transactions table
+            await salaryRepo.removeTransactionFromRequest(client, requestId, transactionId);
+
+            // Update the wallet transaction type back to BALANCE
+            await salaryRepo.updateTransactionType(client, transactionId, TYPES.BALANCE);
+
+            // Recalculate the request amount
+            const remainingTransactions = transactions.filter(t => t.id !== transactionId);
+            const newAmount = remainingTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+
+            // If no transactions remain, reject the request automatically
+            if (remainingTransactions.length === 0) {
+                await salaryRepo.updateStatus(client, requestId, STATUS.REJECTED);
+                
+                // Notify the employee
+                try {
+                    const employee = await employeeRepo.findById(request.employee_id);
+                    if (employee && employee.user_id) {
+                        await notificationHelper.notify(
+                            employee.user_id,
+                            'تم إلغاء طلب الراتب',
+                            'تم إلغاء طلب راتبك تلقائياً لأن جميع المعاملات المالية تمت إزالتها.'
+                        );
+                    }
+                } catch (notifyErr) {
+                    console.error("[SalaryRequestService] Notification error (ignored):", notifyErr.message);
+                }
+
+                return {
+                    success: true,
+                    message: 'Request rejected as no transactions remain',
+                    newAmount: 0
+                };
+            }
+
+            // Update the request amount
+            await salaryRepo.updateRequestAmount(client, requestId, newAmount);
+
+            // Notify the employee
+            try {
+                const employee = await employeeRepo.findById(request.employee_id);
+                if (employee && employee.user_id) {
+                    await notificationHelper.notify(
+                        employee.user_id,
+                        'تم تعديل طلب الراتب',
+                        `تم إزالة مبلغ ${Number(transaction.amount)} من طلب راتبك. المبلغ الجديد: ${newAmount}`
+                    );
+                }
+            } catch (notifyErr) {
+                console.error("[SalaryRequestService] Notification error (ignored):", notifyErr.message);
+            }
+
+            return {
+                success: true,
+                message: 'Transaction removed successfully',
+                newAmount
+            };
+        });
+    }
 }
 
 module.exports = new SalaryRequestService();
