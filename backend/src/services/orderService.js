@@ -400,6 +400,116 @@ class OrderService {
       throw err;
     }
   }
+
+  async cancelOrder(user, orderId, client) {
+    const order = await orderRepository.findById(orderId);
+
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    // Check if order is already cancelled
+    if (order.status === "CANCELLED") {
+      throw new Error("Order is already cancelled");
+    }
+
+    // Check if order status is PENDING - only pending orders can be cancelled
+    if (order.status !== "PENDING") {
+      throw new Error("Only pending orders can be cancelled");
+    }
+
+    // Role-based authorization
+    const isAuthorized = await this._checkCancelAuthorization(user, order);
+    if (!isAuthorized) {
+      throw new Error("Unauthorized to cancel this order");
+    }
+
+    // Restore product quantities
+    const items = await orderItemRepository.findByOrderId(orderId);
+    for (const item of items) {
+      await productRepository.increaseQuantity({
+        product_id: item.product_id,
+        quantity: item.quantity,
+      });
+    }
+
+    // Update order status to CANCELLED
+    await orderRepository.cancelOrder(orderId, client);
+
+    // Notify the marketer
+    const marketer = await employeeRepository.findById(order.marketer_id);
+    if (marketer) {
+      const marketerUserId = marketer.user_id;
+      await notificationHelper.notify(
+        marketerUserId,
+        "تم إلغاء الطلب",
+        `تم إلغاء الطلب رقم ${orderId.substring(0, 8)}. يرجى مراجعة تفاصيل الطلب.`,
+      );
+    }
+
+    // Notify the customer
+    const customer = await customerRepository.findById(order.customer_id);
+    if (customer) {
+      await notificationHelper.notify(
+        customer.user_id,
+        "تم إلغاء الطلب",
+        `تم إلغاء الطلب رقم ${orderId.substring(0, 8)}.`,
+      );
+    }
+  }
+
+  async _checkCancelAuthorization(user, order) {
+    const role = user.role;
+
+    // ADMIN can cancel all orders
+    if (role === "ADMIN") {
+      return true;
+    }
+
+    // BRANCH_MANAGER can cancel orders in their branch only
+    if (role === "BRANCH_MANAGER") {
+      const employee = await employeeRepository.findByUserId(user.id);
+      if (!employee || employee.branch_id !== order.branch_id) {
+        return false;
+      }
+      return true;
+    }
+
+    // MARKETER can cancel orders they created only
+    if (role === "MARKETER") {
+      const employee = await employeeRepository.findByUserId(user.id);
+      if (!employee) {
+        return false;
+      }
+      return order.marketer_id === employee.id;
+    }
+
+    // SUPERVISOR can cancel orders made by them only
+    if (role === "SUPERVISOR") {
+      const employee = await employeeRepository.findByUserId(user.id);
+      if (!employee) {
+        return false;
+      }
+      return order.marketer_id === employee.id;
+    }
+
+    // GENERAL_SUPERVISOR can cancel orders made by them only
+    if (role === "GENERAL_SUPERVISOR") {
+      const employee = await employeeRepository.findByUserId(user.id);
+      if (!employee) {
+        return false;
+      }
+      return order.marketer_id === employee.id;
+    }
+
+    // CUSTOMER can cancel their own orders only
+    if (role === "CUSTOMER") {
+      // The user object should have customer_id when it's a customer
+      return order.customer_id === user.customer_id;
+    }
+
+    return false;
+  }
 }
 
 module.exports = new OrderService();

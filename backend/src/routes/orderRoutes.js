@@ -14,7 +14,10 @@ router.post(
 );
 
 router.put('/orders/:id/approve', auth, requireRoles(['BRANCH_MANAGER']), orderController.approve);
-router.put('/orders/:id/reject', auth, requireRoles(['BRANCH_MANAGER']), orderController.reject)
+router.put('/orders/:id/reject', auth, requireRoles(['BRANCH_MANAGER']), orderController.reject);
+
+// Cancel order - accessible by all roles with authorization checks in service layer
+router.put('/orders/:id/cancel', auth, orderController.cancel);
 
 router.get('/orders', auth, orderController.list);
 router.get('/orders/:id', auth, orderController.getById);

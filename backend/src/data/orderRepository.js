@@ -543,6 +543,17 @@ class OrderRepository {
 
     return rows;
   }
+
+  async cancelOrder(orderId, client) {
+    await client.query(
+      `
+      UPDATE orders
+      SET status = $1
+      WHERE id = $2
+    `,
+      ['CANCELLED', orderId],
+    );
+  }
 }
 
 module.exports = new OrderRepository();

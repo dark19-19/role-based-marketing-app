@@ -141,6 +141,25 @@ class OrderController {
       });
     }
   }
+
+  async cancel(req, res) {
+    try {
+      await db.runInTransaction(async (client) => {
+        await orderService.cancelOrder(req.user, req.params.id, client);
+      });
+
+      res.json({
+        success: true,
+        message: "تم إلغاء الطلب بنجاح",
+      });
+    } catch (err) {
+      console.error("Error cancelling order:", err);
+      res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  }
 }
 
 module.exports = new OrderController();
