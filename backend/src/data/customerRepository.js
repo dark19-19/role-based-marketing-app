@@ -103,6 +103,7 @@ class CustomerRepository {
         const { rows } = await db.query(`
     SELECT
       c.id,
+      c.user_id,
 
       (u.first_name || ' ' || u.last_name) AS full_name,
       u.phone,
