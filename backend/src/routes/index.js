@@ -14,6 +14,7 @@ const employeeRoutes = require('./employeeRoutes');
 const salaryRoutes = require('./salaryRequestRoutes')
 const notificationRouter = require('./notificationRoutes');
 const walletRoutes = require('./walletRoutes');
+const statsRoutes = require('./statsRoutes');
 const router = express.Router();
 
 router.use('/api/wallet', walletRoutes);
@@ -31,6 +32,7 @@ router.use('/api', employeeRoutes);
 router.use('/api', productRoutes);
 router.use('/api', orderRoutes);
 router.use('/api', commissionRoutes);
+router.use('/api/stats', statsRoutes);
 
 
 module.exports = router;
