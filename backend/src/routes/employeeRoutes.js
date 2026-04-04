@@ -41,6 +41,22 @@ router.put(
     employeeController.update
 );
 
+// Remove employee - convert to customer
+router.patch(
+    '/employees/:id/remove',
+    authMiddleware,
+    requireRole(['ADMIN']),
+    employeeController.remove
+);
+
+// Apply employee - convert customer to employee
+router.patch(
+    '/employees/apply',
+    authMiddleware,
+    requireRole(['ADMIN']),
+    employeeController.apply
+);
+
 // Salary request routes
 // router.post(
 //     '/salary-requests',

@@ -163,6 +163,51 @@ class EmployeeController {
       });
     }
   }
+
+  async remove(req, res) {
+    try {
+      const result = await employeeService.removeEmployee(req.params.id);
+
+      res.json({
+        success: true,
+        body: result,
+        message: "تم تحويل الموظف إلى عميل بنجاح"
+      });
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  }
+
+  async apply(req, res) {
+    try {
+      const { userId, role, branchId, supervisorId } = req.body;
+
+      if (!userId || !role || !branchId) {
+        throw new Error("userId, role, and branchId are required");
+      }
+
+      const result = await employeeService.applyEmployee(
+        userId,
+        role,
+        branchId,
+        supervisorId
+      );
+
+      res.status(200).json({
+        success: true,
+        body: result,
+        message: "تم تحويل العميل إلى موظف بنجاح"
+      });
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+  }
 }
 
 module.exports = new EmployeeController();

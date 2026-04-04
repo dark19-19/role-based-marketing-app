@@ -1,9 +1,13 @@
 const { randomUUID } = require("crypto");
 const employeeRepo = require("../data/employeeRepository");
 const salaryRequestRepo = require("../data/salaryRequestRepository");
+const customerRepo = require("../data/customerRepository");
 const userRepo = require("../data/userRepository");
+const roleRepo = require("../data/roleRepository");
+const adminRepo = require("../data/adminRepository");
 const db = require("../helpers/DBHelper");
 const bcrypt = require("bcrypt");
+const notificationHelper = require("../helpers/notificationHelper");
 
 class EmployeeService {
   async createEmployee({ userId, role, branchId, supervisorId }) {
@@ -350,6 +354,158 @@ class EmployeeService {
     } catch (err) {
       throw err;
     }
+  }
+
+  async removeEmployee(employeeId) {
+    return await db.runInTransaction(async (client) => {
+      // 1️⃣ Get employee details
+      const employee = await employeeRepo.findById(employeeId);
+      if (!employee) {
+        throw new Error("Employee not found");
+      }
+
+      // 2️⃣ Check if employee is already inactive
+      if (!employee.is_active) {
+        throw new Error("Employee is already removed");
+      }
+
+      // 3️⃣ Get the branch and governorate for the new customer
+      const branchInfo = await employeeRepo.getEmployeeBranch(employeeId);
+      if (!branchInfo) {
+        throw new Error("Employee branch not found");
+      }
+
+      // 4️⃣ Update employee is_active to false
+      await employeeRepo.updateIsActive(employeeId, false, client);
+
+      // 5️⃣ Update user's role to CUSTOMER
+      const customerRole = await roleRepo.findByName("CUSTOMER");
+      if (!customerRole) {
+        throw new Error("Customer role not found");
+      }
+
+      await userRepo.updateRole(employee.user_id, customerRole.id, client);
+
+      // 6️⃣ Check if user was a customer before (has an existing customer record)
+      const existingCustomer = await customerRepo.findByUserId(employee.user_id);
+
+      if (existingCustomer) {
+        // If user was a customer before, just update is_active to true
+        await customerRepo.updateIsActive(existingCustomer.id, true, client);
+      } else {
+        // If user was never a customer, create a new customer record
+        await customerRepo.createWithClient(client, {
+          user_id: employee.user_id,
+          referred_by: null,
+          first_marketer_id: null,
+          governorate_id: branchInfo.governorate_id,
+          is_active: true
+        });
+      }
+
+      // 7️⃣ Update wallet transactions from BALANCE to WITHDREW
+      await employeeRepo.updateWalletTransactionsToWithdrew(employeeId, client);
+
+      // 8️⃣ Notify the user
+      try {
+        await notificationHelper.notify(
+          employee.user_id,
+          "تم تحويل حسابك إلى عميل",
+          "تم تحويل حسابك من موظف إلى عميل بنجاح."
+        );
+      } catch (notifyErr) {
+        console.error("[EmployeeService] Notification error (ignored):", notifyErr.message);
+      }
+
+      return {
+        success: true,
+        message: "Employee removed and converted to customer successfully"
+      };
+    });
+  }
+
+  async applyEmployee(userId, role, branchId, supervisorId) {
+    return await db.runInTransaction(async (client) => {
+      // 1️⃣ Get user details
+      const user = await userRepo.findById(userId);
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      // 2️⃣ Check if user is already an active employee
+      const existingEmployeeActive = await employeeRepo.findByUserIdWithActive(userId);
+      if (existingEmployeeActive) {
+        throw new Error("User is already an active employee");
+      }
+
+      // 3️⃣ Check if user has a customer record
+      const existingCustomer = await customerRepo.findByUserId(userId);
+      if (!existingCustomer) {
+        throw new Error("User does not have a customer record");
+      }
+
+      // 4️⃣ Update customer's is_active to false
+      await customerRepo.updateIsActive(existingCustomer.id, false, client);
+
+      // 5️⃣ Update user's role to the new employee role
+      const roleData = await roleRepo.findByName(role);
+      if (!roleData) {
+        throw new Error("Role not found");
+      }
+
+      await userRepo.updateRole(userId, roleData.id, client);
+
+      // 6️⃣ Create new employee record
+      let finalSupervisor = null;
+
+      // Determine supervisor based on role
+      if (role === "BRANCH_MANAGER" || role === "GENERAL_SUPERVISOR") {
+        finalSupervisor = null;
+      } else if (role === "SUPERVISOR") {
+        if (!supervisorId) {
+          throw new Error("Supervisor ID is required for supervisor role");
+        }
+        finalSupervisor = supervisorId;
+      } else if (role === "MARKETER") {
+        if (!supervisorId) {
+          throw new Error("Supervisor ID is required for marketer role");
+        }
+        finalSupervisor = supervisorId;
+      }
+      const existingEmployee = await employeeRepo.findByUserId(userId);
+      if(existingEmployee) {
+        await employeeRepo.updateIsActive(existingEmployee.id, true, client);
+        await employeeRepo.updateBranch(existingEmployee.id, branchId, client);
+        await employeeRepo.updateSupervisor(finalSupervisor, existingEmployee.id, client)
+        return true;
+      } else {
+        const newEmployeeId = randomUUID();
+        return await employeeRepo.create({
+          id: newEmployeeId,
+          userId: userId,
+          branchId: branchId,
+          supervisorId: finalSupervisor
+        });
+      }
+
+
+
+      // 7️⃣ Notify the user
+      try {
+        await notificationHelper.notify(
+          userId,
+          "تم تحويل حسابك إلى موظف",
+          `تم تحويل حسابك إلى موظف بنجاح. مرحباً بك في الفريق!`
+        );
+      } catch (notifyErr) {
+        console.error("[EmployeeService] Notification error (ignored):", notifyErr.message);
+      }
+
+      return {
+        success: true,
+        message: "Customer converted to employee successfully",
+      };
+    });
   }
 }
 

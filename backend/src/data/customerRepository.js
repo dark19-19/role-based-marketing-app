@@ -141,6 +141,62 @@ class CustomerRepository {
 
     }
 
+    async findByUserId(userId) {
+        const { rows } = await db.query(
+            `
+            SELECT *
+            FROM customers 
+            WHERE user_id = $1
+            `,
+            [userId]
+        );
+        return rows[0] || null;
+    }
+
+    async findByUserIdWithActive(userId) {
+        const { rows } = await db.query(
+            `
+            SELECT c.*
+            FROM customers c
+            WHERE c.user_id = $1 AND c.is_active = true
+            `,
+            [userId]
+        );
+        return rows[0] || null;
+    }
+
+    async createWithClient(client, data) {
+        const id = randomUUID();
+        await client.query(
+            `
+            INSERT INTO customers
+            (id, user_id, referred_by, first_marketer_id, governorate_id, is_active)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            `,
+            [
+                id,
+                data.user_id,
+                data.referred_by || null,
+                data.first_marketer_id || null,
+                data.governorate_id,
+                data.is_active !== undefined ? data.is_active : true
+            ]
+        );
+        return id;
+    }
+
+    async updateIsActive(customerId, isActive, client) {
+        const queryClient = client || db;
+        await queryClient.query(
+            `
+            UPDATE customers
+            SET is_active = $2
+            WHERE id = $1
+            `,
+            [customerId, isActive]
+        );
+    }
+
 }
 
 module.exports = new CustomerRepository();

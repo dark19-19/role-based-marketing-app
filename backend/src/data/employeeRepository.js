@@ -420,6 +420,78 @@ ORDER BY name
       [userId, passwordHash],
     );
   }
+
+  async updateIsActive(employeeId, isActive, client) {
+    const queryClient = client || db;
+    await queryClient.query(
+      `
+    UPDATE employees
+    SET is_active = $2
+    WHERE id = $1
+  `,
+      [employeeId, isActive],
+    );
+  }
+
+  async findByIdWithActive(id) {
+    const { rows } = await db.query(
+      `
+    SELECT e.*, u.phone
+    FROM employees e
+    JOIN users u ON u.id = e.user_id
+    WHERE e.id = $1 AND e.is_active = true
+  `,
+      [id],
+    );
+    return rows[0] || null;
+  }
+
+  async findByUserIdWithActive(userId) {
+    const { rows } = await db.query(
+      `
+    SELECT e.*, u.phone
+    FROM employees e
+    JOIN users u ON u.id = e.user_id
+    WHERE e.user_id = $1 AND e.is_active = true
+  `,
+      [userId],
+    );
+    return rows[0] || null;
+  }
+
+  async getEmployeeBranch(employeeId) {
+    const { rows } = await db.query(
+      `
+    SELECT b.governorate_id, b.id as branch_id
+    FROM employees e
+    JOIN branches b ON b.id = e.branch_id
+    WHERE e.id = $1
+  `,
+      [employeeId],
+    );
+    return rows[0] || null;
+  }
+
+  async updateWalletTransactionsToWithdrew(employeeId, client) {
+    await client.query(
+      `
+    UPDATE wallet_transactions
+    SET type = 'WITHDREW'
+    WHERE employee_id = $1 AND type = 'BALANCE'
+  `,
+      [employeeId],
+    );
+  }
+
+  async updateSupervisor(supervisorId, id, client) {
+    const { rows } = await client.query(`
+      UPDATE employees SET 
+      supervisor_id = $1
+      WHERE id = $2
+    `, [supervisorId, id]);
+    return rows[0] || null;
+  }
+
 }
 
 module.exports = new EmployeeRepository();

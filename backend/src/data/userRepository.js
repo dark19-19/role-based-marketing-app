@@ -87,6 +87,14 @@ LIMIT $1 OFFSET $2
     const sql = `UPDATE jwt_tokens SET revoked = TRUE WHERE user_id = $1`;
     await db.query(sql, [userId]);
   }
+
+  async updateRole(userId, roleId, client) {
+    const queryClient = client || db;
+    await queryClient.query(
+      `UPDATE users SET role_id = $2, updated_at = NOW() WHERE id = $1`,
+      [userId, roleId]
+    );
+  }
 }
 
 module.exports = new UserRepository();
