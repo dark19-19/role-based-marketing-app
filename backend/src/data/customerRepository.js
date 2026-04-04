@@ -39,6 +39,7 @@ class CustomerRepository {
       u.first_name || ' ' || u.last_name AS name,
       u.phone,
       u.is_active,
+      c.is_active as customer_is_active,
 
       g.name AS governorate,
 
@@ -78,6 +79,8 @@ class CustomerRepository {
     LEFT JOIN roles fm_r
       ON fm_r.id = fm_u.role_id
 
+    WHERE c.is_active = true
+
     ORDER BY u.first_name
 
     LIMIT $1 OFFSET $2
@@ -87,7 +90,7 @@ class CustomerRepository {
 
         const count = await db.query(
             `
-    SELECT COUNT(*) FROM customers
+    SELECT COUNT(*) FROM customers WHERE is_active = true
     `
         );
 
