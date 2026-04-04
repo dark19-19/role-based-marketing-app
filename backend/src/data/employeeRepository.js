@@ -483,13 +483,16 @@ ORDER BY name
     );
   }
 
-  async updateSupervisor(supervisorId, id, client) {
-    const { rows } = await client.query(`
-      UPDATE employees SET 
-      supervisor_id = $1
-      WHERE id = $2
-    `, [supervisorId, id]);
-    return rows[0] || null;
+  async updateSupervisor(employeeId, supervisorId, client) {
+    const queryClient = client || db;
+    await queryClient.query(
+      `
+      UPDATE employees
+      SET supervisor_id = $2
+      WHERE id = $1
+    `,
+      [employeeId, supervisorId]
+    );
   }
 
 }
