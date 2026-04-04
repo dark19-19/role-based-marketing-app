@@ -472,15 +472,21 @@ class EmployeeService {
         }
         finalSupervisor = supervisorId;
       }
+
+      // Check if employee record already exists (inactive)
       const existingEmployee = await employeeRepo.findByUserId(userId);
-      if(existingEmployee) {
+      let newEmployeeId;
+
+      if (existingEmployee) {
+        // Reactivate existing employee
         await employeeRepo.updateIsActive(existingEmployee.id, true, client);
         await employeeRepo.updateBranch(existingEmployee.id, branchId, client);
-        await employeeRepo.updateSupervisor(finalSupervisor, existingEmployee.id, client)
-        return true;
+        await employeeRepo.updateSupervisor(existingEmployee.id, finalSupervisor, client);
+        newEmployeeId = existingEmployee.id;
       } else {
-        const newEmployeeId = randomUUID();
-        return await employeeRepo.create({
+        // Create new employee
+        newEmployeeId = randomUUID();
+        await employeeRepo.create({
           id: newEmployeeId,
           userId: userId,
           branchId: branchId,
@@ -488,14 +494,12 @@ class EmployeeService {
         });
       }
 
-
-
       // 7️⃣ Notify the user
       try {
         await notificationHelper.notify(
           userId,
           "تم تحويل حسابك إلى موظف",
-          `تم تحويل حسابك إلى موظف بنجاح. مرحباً بك في الفريق!`
+          `تم تحويل حسابك إلى ${role} بنجاح. مرحباً بك في الفريق!`
         );
       } catch (notifyErr) {
         console.error("[EmployeeService] Notification error (ignored):", notifyErr.message);
@@ -504,6 +508,192 @@ class EmployeeService {
       return {
         success: true,
         message: "Customer converted to employee successfully",
+        employeeId: newEmployeeId
+      };
+    });
+  }
+
+  async promoteEmployee(employeeId) {
+    return await db.runInTransaction(async (client) => {
+      // 1️⃣ Get employee details with role
+      const employee = await employeeRepo.findById(employeeId);
+      if (!employee) {
+        throw new Error("Employee not found");
+      }
+
+      if (!employee.is_active) {
+        throw new Error("Employee is not active");
+      }
+
+      // Get employee's role
+      const employeeWithRole = await employeeRepo.findEmployeeWithRole(employeeId);
+      const currentRole = employeeWithRole.role;
+
+      // 2️⃣ Determine the new role based on current role
+      let newRole = null;
+      let newSupervisorId = null;
+
+      if (currentRole === "MARKETER") {
+        // Promote MARKETER to SUPERVISOR
+        // New supervisor should be the grandfather (supervisor's supervisor)
+        const supervisor = await employeeRepo.getEmployeeSupervisor(employeeId);
+        if (supervisor && supervisor.supervisor_role === "GENERAL_SUPERVISOR") {
+          // The supervisor is under a general supervisor
+          // Marketer -> Supervisor -> General Supervisor
+          // When promoting, the marketer becomes a supervisor under the same GS
+          newRole = "SUPERVISOR";
+          newSupervisorId = supervisor.id;
+        } else if (supervisor && supervisor.supervisor_role === "SUPERVISOR") {
+          // Get the general supervisor (grandfather)
+          const gs = await employeeRepo.getEmployeeGeneralSupervisor(employeeId);
+          if (gs && gs.id) {
+            newRole = "SUPERVISOR";
+            newSupervisorId = gs.id;
+          } else {
+            newRole = "SUPERVISOR";
+            newSupervisorId = null;
+          }
+        } else {
+          newRole = "SUPERVISOR";
+          newSupervisorId = null;
+        }
+      } else if (currentRole === "SUPERVISOR") {
+        // Promote SUPERVISOR to GENERAL_SUPERVISOR
+        newRole = "GENERAL_SUPERVISOR";
+        newSupervisorId = null; // General supervisors have no supervisor
+      } else if (currentRole === "GENERAL_SUPERVISOR") {
+        throw new Error("General supervisor cannot be promoted further");
+      } else {
+        throw new Error("This role cannot be promoted");
+      }
+
+      // 3️⃣ Update user's role
+      const roleData = await roleRepo.findByName(newRole);
+      if (!roleData) {
+        throw new Error("Role not found");
+      }
+
+      await userRepo.updateRole(employee.user_id, roleData.id, client);
+
+      // 4️⃣ Update employee's supervisor
+      await employeeRepo.updateSupervisor(employeeId, newSupervisorId, client);
+
+      // 5️⃣ Notify the employee
+      try {
+        await notificationHelper.notify(
+          employee.user_id,
+          "تم ترقيتك",
+          `تم ترقيتك إلى ${newRole} بنجاح. تهانينا!`
+        );
+      } catch (notifyErr) {
+        console.error("[EmployeeService] Notification error (ignored):", notifyErr.message);
+      }
+
+      return {
+        success: true,
+        message: `Employee promoted to ${newRole} successfully`,
+        newRole
+      };
+    });
+  }
+
+  async demoteEmployee(employeeId, newSupervisorId) {
+    return await db.runInTransaction(async (client) => {
+      // 1️⃣ Get employee details with role
+      const employee = await employeeRepo.findById(employeeId);
+      if (!employee) {
+        throw new Error("Employee not found");
+      }
+
+      if (!employee.is_active) {
+        throw new Error("Employee is not active");
+      }
+
+      // Get employee's role
+      const employeeWithRole = await employeeRepo.findEmployeeWithRole(employeeId);
+      const currentRole = employeeWithRole.role;
+
+      // 2️⃣ Determine the new role based on current role
+      let newRole = null;
+      let finalNewSupervisorId = null;
+
+      if (currentRole === "GENERAL_SUPERVISOR") {
+        // Demote GENERAL_SUPERVISOR to SUPERVISOR
+        // Need to specify the new supervisor (must be a GENERAL_SUPERVISOR)
+        if (!newSupervisorId) {
+          throw new Error("New supervisor ID is required when demoting to supervisor");
+        }
+
+        // Verify the new supervisor exists and is a GENERAL_SUPERVISOR
+        const supervisorToBe = await employeeRepo.findEmployeeWithRole(newSupervisorId);
+        if (!supervisorToBe) {
+          throw new Error("New supervisor not found");
+        }
+        if (supervisorToBe.role !== "GENERAL_SUPERVISOR") {
+          throw new Error("New supervisor must be a general supervisor");
+        }
+
+        newRole = "SUPERVISOR";
+        finalNewSupervisorId = newSupervisorId;
+      } else if (currentRole === "SUPERVISOR") {
+        // Demote SUPERVISOR to MARKETER
+        // Two options:
+        // 1. If newSupervisorId provided: use that
+        // 2. If empty: use the same general supervisor that was above before demotion
+        
+        if (newSupervisorId) {
+          // Verify the new supervisor exists
+          const newSupervisor = await employeeRepo.findEmployeeWithRole(newSupervisorId);
+          if (!newSupervisor) {
+            throw new Error("New supervisor not found");
+          }
+          if (newSupervisor.role !== "GENERAL_SUPERVISOR" && newSupervisor.role !== "SUPERVISOR") {
+            throw new Error("New supervisor must be a general supervisor or supervisor");
+          }
+          finalNewSupervisorId = newSupervisorId;
+        } else {
+          // Use the same general supervisor that was above before demotion
+          const gs = await employeeRepo.getEmployeeGeneralSupervisor(employeeId);
+          if (gs && gs.id) {
+            finalNewSupervisorId = gs.id;
+          } else {
+            throw new Error("Cannot demote without specifying a supervisor");
+          }
+        }
+
+        newRole = "MARKETER";
+      } else if (currentRole === "MARKETER") {
+        throw new Error("Marketer cannot be demoted further");
+      } else {
+        throw new Error("This role cannot be demoted");
+      }
+
+      // 3️⃣ Update user's role
+      const roleData = await roleRepo.findByName(newRole);
+      if (!roleData) {
+        throw new Error("Role not found");
+      }
+
+      await userRepo.updateRole(employee.user_id, roleData.id, client);
+
+      // 4️⃣ Update employee's supervisor
+      await employeeRepo.updateSupervisor(employeeId, finalNewSupervisorId, client);
+
+      // 5️⃣ Notify the employee
+      try {
+        await notificationHelper.notify(
+          employee.user_id,
+          "تم تخفيضك",
+          `تم تخفيضك إلى ${newRole}. نرجو منك الاستمرار في العمل بنفس الجدية.`
+        );
+      } catch (notifyErr) {
+        console.error("[EmployeeService] Notification error (ignored):", notifyErr.message);
+      }
+
+      return {
+        success: true,
+        message: `Employee demoted to ${newRole} successfully`,
+        newRole
       };
     });
   }

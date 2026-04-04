@@ -57,6 +57,22 @@ router.patch(
     employeeController.apply
 );
 
+// Promote employee
+router.patch(
+    '/employees/:id/promote',
+    authMiddleware,
+    requireRole(['ADMIN']),
+    employeeController.promote
+);
+
+// Demote employee
+router.patch(
+    '/employees/:id/demote',
+    authMiddleware,
+    requireRole(['ADMIN']),
+    employeeController.demote
+);
+
 // Salary request routes
 // router.post(
 //     '/salary-requests',

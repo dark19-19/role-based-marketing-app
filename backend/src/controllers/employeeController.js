@@ -208,6 +208,41 @@ class EmployeeController {
       });
     }
   }
+
+  async promote(req, res) {
+    try {
+      const result = await employeeService.promoteEmployee(req.params.id);
+
+      res.status(200).json({
+        success: true,
+        body: result,
+        message: "تم ترقيت الموظف بنجاح"
+      });
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+  }
+
+  async demote(req, res) {
+    try {
+      const { newSupervisorId } = req.body;
+      const result = await employeeService.demoteEmployee(req.params.id, newSupervisorId);
+
+      res.status(200).json({
+        success: true,
+        body: result,
+        message: "تم تخفيض الموظف بنجاح"
+      });
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+  }
 }
 
 module.exports = new EmployeeController();
