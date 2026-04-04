@@ -27,9 +27,58 @@ class CustomerRepository {
 
     }
 
-    async listPaginated({ page = 1, limit = 20 }) {
+    async listPaginated({ page = 1, limit = 20, employeeId = null, role = null, userId = null }) {
 
         const offset = (page - 1) * limit;
+
+        let whereConditions = ['c.is_active = true'];
+        let params = [];
+        let paramIndex = 1;
+
+        // Role-based filtering
+        if (role === 'MARKETER') {
+            // Marketer sees only their own customers
+            whereConditions.push(`c.referred_by = $${paramIndex}`);
+            params.push(employeeId);
+            paramIndex++;
+        } else if (role === 'SUPERVISOR') {
+            // Supervisor sees their own customers + customers of marketers under them
+            const eid1 = `$${paramIndex}`;
+            const eid2 = `$${paramIndex + 1}`;
+            params.push(employeeId, employeeId);
+            paramIndex += 2;
+            whereConditions.push(`(
+                c.referred_by = ${eid1}
+                OR c.referred_by IN (
+                    SELECT e.id FROM employees e
+                    WHERE e.supervisor_id = ${eid2}
+                )
+            )`);
+        } else if (role === 'GENERAL_SUPERVISOR') {
+            // General supervisor sees their own + supervisors' + marketers' customers
+            const eid1 = `$${paramIndex}`;
+            const eid2 = `$${paramIndex + 1}`;
+            const eid3 = `$${paramIndex + 2}`;
+            params.push(employeeId, employeeId, employeeId);
+            paramIndex += 3;
+            whereConditions.push(`(
+                c.referred_by = ${eid1}
+                OR c.referred_by IN (
+                    SELECT e.id FROM employees e
+                    WHERE e.supervisor_id = ${eid2}
+                )
+                OR c.referred_by IN (
+                    SELECT e.id FROM employees e
+                    WHERE e.supervisor_id IN (
+                        SELECT e2.id FROM employees e2
+                        WHERE e2.supervisor_id = ${eid3}
+                    )
+                )
+            )`);
+        }
+        // ADMIN and BRANCH_MANAGER see all active customers (no additional filter)
+
+        const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 
         const { rows } = await db.query(
             `
@@ -57,8 +106,6 @@ class CustomerRepository {
     LEFT JOIN governorates g
       ON g.id = c.governorate_id
 
-    -- referred by
-
     LEFT JOIN employees ref_e
       ON ref_e.id = c.referred_by
 
@@ -67,8 +114,6 @@ class CustomerRepository {
 
     LEFT JOIN roles ref_r
       ON ref_r.id = ref_u.role_id
-
-    -- first marketer
 
     LEFT JOIN employees fm_e
       ON fm_e.id = c.first_marketer_id
@@ -79,20 +124,20 @@ class CustomerRepository {
     LEFT JOIN roles fm_r
       ON fm_r.id = fm_u.role_id
 
-    WHERE c.is_active = true
+    ${whereClause}
 
     ORDER BY u.first_name
 
-    LIMIT $1 OFFSET $2
+    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `,
-            [limit, offset]
+            [...params, limit, offset]
         );
 
-        const count = await db.query(
-            `
-    SELECT COUNT(*) FROM customers WHERE is_active = true
-    `
-        );
+        const countQuery = `
+    SELECT COUNT(*) FROM customers c
+    ${whereClause}
+    `;
+        const count = await db.query(countQuery, params);
 
         return {
             data: rows,

@@ -40,7 +40,7 @@ class CustomerController {
 
         try {
 
-            const result = await customerService.listCustomers(req.query);
+            const result = await customerService.listCustomers(req.user, req.query);
 
             return res.json({
                 success: true,

@@ -39,7 +39,7 @@ class EmployeeRepository {
   }
 
   async getEmployees({ limit, offset, search, role, supervisorId, branchId }) {
-    let conditions = [];
+    let conditions = ['e.is_active = true'];
     let values = [];
     let idx = 1;
 
@@ -154,7 +154,7 @@ ORDER BY name
   }
 
   async count({ search, role, supervisorId, branchId } = {}) {
-    let conditions = [];
+    let conditions = ['e.is_active = true'];
     let values = [];
     let idx = 1;
 

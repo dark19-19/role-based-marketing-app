@@ -49,14 +49,24 @@ class CustomerService {
 
     }
 
-    async listCustomers(query) {
+    async listCustomers(user, query) {
 
         const page = parseInt(query.page) || 1;
         const limit = parseInt(query.limit) || 20;
 
+        // Get employee ID for role-based filtering
+        let employeeId = null;
+        if (user.role !== 'ADMIN') {
+            const employee = await employeeRepository.findByUserId(user.id);
+            employeeId = employee ? employee.id : null;
+        }
+
         const result = await customerRepository.listPaginated({
             page,
-            limit
+            limit,
+            employeeId,
+            role: user.role,
+            userId: user.id
         });
 
         const pages = Math.ceil(result.total / limit);

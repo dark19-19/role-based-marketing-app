@@ -14,7 +14,7 @@ router.post(
 router.get(
   '/categories',
  authMiddleware,
- roleMiddleware(["ADMIN", "MARKETER", "SUPERVISOR", "BRANCH_MANAGER"]),
+ roleMiddleware(["ADMIN", "MARKETER", "SUPERVISOR", "GENERAL_SUPERVISOR", "BRANCH_MANAGER"]),
   categoryController.listCategories
 );
 
