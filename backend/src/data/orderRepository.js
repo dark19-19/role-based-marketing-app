@@ -160,6 +160,15 @@ class OrderRepository {
               `o.created_at >= DATE_TRUNC('year', CURRENT_DATE)`,
             );
             break;
+          case "custom":
+            if (filters.start_date) {
+              whereConditions.push(`o.created_at >= ${addParam(filters.start_date)}`);
+            }
+            if (filters.end_date) {
+              // Add a day to end date to make it inclusive (less than next day at midnight)
+              whereConditions.push(`o.created_at < (${addParam(filters.end_date)}::date + interval '1 day')`);
+            }
+            break;
           case "all":
             // No additional filter
             break;
@@ -350,6 +359,14 @@ class OrderRepository {
             countWhereConditions.push(
               `o.created_at >= DATE_TRUNC('year', CURRENT_DATE)`,
             );
+            break;
+          case "custom":
+            if (filters.start_date) {
+              countWhereConditions.push(`o.created_at >= ${addCountParam(filters.start_date)}`);
+            }
+            if (filters.end_date) {
+              countWhereConditions.push(`o.created_at < (${addCountParam(filters.end_date)}::date + interval '1 day')`);
+            }
             break;
         }
       }

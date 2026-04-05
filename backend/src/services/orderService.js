@@ -286,6 +286,10 @@ class OrderService {
       // Time-based filter (default to 'recent' for staff, no filter for customers)
       if (user.role !== "CUSTOMER") {
         filters.time_filter = query.time_filter || "recent";
+        if (filters.time_filter === "custom") {
+          filters.start_date = query.start_date;
+          filters.end_date = query.end_date;
+        }
       }
 
       // Marketer filter (only for staff)
@@ -346,6 +350,7 @@ class OrderService {
         { value: "month", label: "This Month's Orders" },
         { value: "year", label: "This Year's Orders" },
         { value: "all", label: "All Orders" },
+        { value: "custom", label: "Custom Range" },
       ],
       status_filters: [
         { value: "PENDING", label: "Pending" },

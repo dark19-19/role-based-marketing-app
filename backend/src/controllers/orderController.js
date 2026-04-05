@@ -48,7 +48,7 @@ class OrderController {
   async list(req, res) {
     try {
       // 🎯 Extract and validate query parameters
-      const { page, limit, time_filter, marketer_id, status, branch_id } =
+      const { page, limit, time_filter, marketer_id, status, branch_id, start_date, end_date } =
         req.query;
 
       // Basic validation for numeric parameters
@@ -74,6 +74,7 @@ class OrderController {
         "month",
         "year",
         "all",
+        "custom",
       ];
       if (time_filter && !validTimeFilters.includes(time_filter)) {
         return res.status(400).json({
@@ -94,7 +95,7 @@ class OrderController {
       // Role-based parameter validation
       if (req.user.role === "CUSTOMER") {
         // Customers shouldn't be able to use staff-only filters
-        if (time_filter || marketer_id || status || branch_id) {
+        if (time_filter || marketer_id || status || branch_id || start_date || end_date) {
           return res.status(403).json({
             success: false,
             message: "Customers cannot use advanced filters",
