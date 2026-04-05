@@ -6,14 +6,13 @@ const requireRoles = require('../middleware/roleMiddleware');
 
 const commissionController = require('../controllers/commissionController');
 
-router.use(auth, requireRoles(['ADMIN']));
 
-router.post('/commissions', commissionController.create);
-router.put('/commissions/:id', commissionController.update);
-router.delete('/commissions/:id', commissionController.delete);
+router.post('/commissions', auth, requireRoles(['ADMIN']),commissionController.create);
+router.put('/commissions/:id', auth, requireRoles(['ADMIN']),commissionController.update);
+router.delete('/commissions/:id',auth, requireRoles(['ADMIN']) ,commissionController.delete);
 
-router.get('/commissions', commissionController.list);
-router.get('/commissions/:id', commissionController.getById);
-// router.get('/product/:productId', commissionController.getByProductId);
+router.get('/commissions',auth, requireRoles(['ADMIN']) ,commissionController.list);
+router.get('/commissions/:id', auth, requireRoles(['ADMIN']),commissionController.getById);
+// router.get('/product/:productId',auth, requireRoles(['ADMIN']) ,commissionController.getByProductId);
 
 module.exports = router;

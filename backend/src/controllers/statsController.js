@@ -189,7 +189,7 @@ class StatsController {
       res.json({
         success: true,
         body: customers,
-        message: 'تم جلب أكثر العملاء طلبات'
+        message: 'تم جلب أكثر العملاء طلباً'
       });
     } catch (err) {
       res.status(400).json({
