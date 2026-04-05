@@ -1,5 +1,4 @@
 const statsService = require('../services/statsService');
-const employeeRepo = require('../data/employeeRepository');
 
 class StatsController {
   // ==================== ADMIN STATS ====================
