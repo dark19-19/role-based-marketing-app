@@ -1,7 +1,15 @@
 const app = require("./app");
 const config = require("./config");
+const createNotificationCleanupJob = require("./jobs/notificationCleanupJob");
+const createNotificationPurgeJob = require("./jobs/notificationPurgeJob");
 
 const port = config.port || 3000;
+console.log("\n");
+console.log("notificaiton cron job initialized");
+createNotificationCleanupJob().start();
+console.log("\n");
+console.log("notificaiton purge cron job initialized");
+createNotificationPurgeJob().start();
 
 app.listen(port, () => {
   console.log("\n");

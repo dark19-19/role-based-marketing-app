@@ -151,6 +151,61 @@ class NotificationRepository {
       [userId],
     );
   }
+
+  async getActiveCount() {
+    const { rows } = await db.query(
+      `
+        SELECT COUNT(*)::int AS total
+        FROM notifications
+        WHERE deleted_at IS NULL
+      `,
+    );
+
+    return Number(rows[0].total);
+  }
+
+  async softDeleteOldestExcess(keepCount) {
+    const keep = Number.parseInt(String(keepCount), 10);
+    if (Number.isNaN(keep) || keep < 1) {
+      throw new Error(`Invalid keepCount: ${keepCount}`);
+    }
+
+    const result = await db.query(
+      `
+        WITH to_delete AS (
+          SELECT id
+          FROM notifications
+          WHERE deleted_at IS NULL
+          ORDER BY created_at DESC, id DESC
+          OFFSET $1
+        )
+        UPDATE notifications
+        SET deleted_at = NOW()
+        WHERE id IN (SELECT id FROM to_delete)
+      `,
+      [keep],
+    );
+
+    return result.rowCount;
+  }
+
+  async hardDeleteSoftDeletedOlderThanDays(days) {
+    const retentionDays = Number.parseInt(String(days), 10);
+    if (Number.isNaN(retentionDays) || retentionDays < 1) {
+      throw new Error(`Invalid days: ${days}`);
+    }
+
+    const result = await db.query(
+      `
+        DELETE FROM notifications
+        WHERE deleted_at IS NOT NULL
+          AND deleted_at < (NOW() - ($1 * INTERVAL '1 day'))
+      `,
+      [retentionDays],
+    );
+
+    return result.rowCount;
+  }
 }
 
 module.exports = new NotificationRepository();
