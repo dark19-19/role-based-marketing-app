@@ -37,7 +37,8 @@ class AdminController {
 
   createUser = async (req, res, next) => {
     try {
-      const result = await adminService.createUser(req.body);
+
+      const result = await adminService.createUser(req.user,req.body);
       res.status(200).json({
         success: true,
         data: result,
