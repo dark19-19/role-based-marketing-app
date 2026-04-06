@@ -53,6 +53,7 @@ class AuthService {
         role: user.role,
         employee_id: user.employee_id,
         branch_id: user.branch_id,
+        branch_name: user.branch_name,
         token,
       };
     } catch (err) {
@@ -132,6 +133,7 @@ class AuthService {
         is_active: user.is_active,
         employee_id: user.employee_id,
         branch_id: user.branch_id,
+        branch_name: user.branch_name,
       };
     } catch (err) {
       throw err;

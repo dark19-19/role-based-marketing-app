@@ -314,6 +314,7 @@ ORDER BY name
             LEFT JOIN governorates g ON g.id = c.governorate_id
             WHERE o.marketer_id = $1
             ORDER BY o.created_at DESC
+            LIMIT 5
         `,
       [employeeId],
     );

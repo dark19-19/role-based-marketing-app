@@ -86,9 +86,10 @@ class CommissionRepository {
         const offset = (page - 1) * limit;
 
         const { rows } = await db.query(`
-      SELECT *
-      FROM commission_settings
-      ORDER BY created_at DESC NULLS LAST
+      SELECT cs.*, p.name as product_name
+      FROM commission_settings cs
+      LEFT JOIN products p ON p.id = cs.product_id
+      ORDER BY cs.created_at DESC NULLS LAST
       LIMIT $1 OFFSET $2
     `, [limit, offset]);
 

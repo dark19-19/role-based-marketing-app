@@ -66,6 +66,7 @@ class SalaryRequestRepository {
             FROM salary_requests sr
             WHERE sr.employee_id = $1
             ORDER BY sr.created_at DESC
+            LIMIT 5
         `, [employeeId]);
 
         return rows;

@@ -469,18 +469,10 @@ class OrderRepository {
         oi.main_price,
         oi.sold_price,
 
-        COALESCE(cs.product_id) AS commission_type,
-
-        cs.company_percentage,
-        cs.general_supervisor_percentage,
-        cs.supervisor_percentage
+        p.id AS product_id
 
       FROM order_items oi
       JOIN products p ON p.id = oi.product_id
-
-      LEFT JOIN commission_settings cs
-        ON cs.product_id = oi.product_id
-        OR cs.product_id IS NULL
 
       WHERE oi.order_id = $1
     `,

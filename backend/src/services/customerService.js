@@ -64,6 +64,7 @@ class CustomerService {
         const result = await customerRepository.listPaginated({
             page,
             limit,
+            search: query.search || null,
             employeeId,
             role: user.role,
             userId: user.id

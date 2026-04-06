@@ -27,13 +27,21 @@ class CustomerRepository {
 
     }
 
-    async listPaginated({ page = 1, limit = 20, employeeId = null, role = null, userId = null }) {
+    async listPaginated({ page = 1, limit = 20, search = null, employeeId = null, role = null, userId = null }) {
 
         const offset = (page - 1) * limit;
 
         let whereConditions = ['c.is_active = true'];
         let params = [];
         let paramIndex = 1;
+
+        if (search) {
+            whereConditions.push(
+                `(u.first_name || ' ' || u.last_name ILIKE $${paramIndex} OR u.phone ILIKE $${paramIndex})`
+            );
+            params.push(`%${search}%`);
+            paramIndex++;
+        }
 
         // Role-based filtering
         if (role === 'MARKETER') {
@@ -126,7 +134,7 @@ class CustomerRepository {
 
     ${whereClause}
 
-    ORDER BY u.first_name
+    ORDER BY u.first_name, c.id DESC
 
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `,
@@ -135,6 +143,7 @@ class CustomerRepository {
 
         const countQuery = `
     SELECT COUNT(*) FROM customers c
+    JOIN users u ON u.id = c.user_id
     ${whereClause}
     `;
         const count = await db.query(countQuery, params);
