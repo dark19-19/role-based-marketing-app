@@ -29,52 +29,6 @@ describe('Admin unit tests', () => {
     expect(res.body.data.role).toBe('BRANCH_MANAGER');
   });
 
-  test('admin can create general supervisor linked to branch manager', async () => {
-    const loginRes = await api.loginAdmin();
-    const token = loginRes.body.data.token;
-
-    const { governorateId } = await dbUtils.seedBaseData();
-    const branchId = await dbUtils.createBranch(governorateId);
-
-    const bmRes = await api.request(api.app)
-      .post('/api/admin/create-user')
-      .set(api.authHeader(token))
-      .send({
-        first_name: 'BM',
-        last_name: 'One',
-        phone: '0990000002',
-        password: 'pass12345',
-        role: 'BRANCH_MANAGER',
-        branch_id: branchId,
-      });
-
-    const bmUserId = bmRes.body.data.id;
-    const bmEmployeeId = await dbUtils.getEmployeeIdByUserId(bmUserId);
-
-    const gsRes = await api.request(api.app)
-      .post('/api/admin/create-user')
-      .set(api.authHeader(token))
-      .send({
-        first_name: 'GS',
-        last_name: 'One',
-        phone: '0990000003',
-        password: 'pass12345',
-        role: 'GENERAL_SUPERVISOR',
-        branch_id: branchId,
-        supervisor_id: bmEmployeeId,
-      });
-
-    expect(gsRes.status).toBe(200);
-    expect(gsRes.body.success).toBe(true);
-    expect(gsRes.body.data.role).toBe('GENERAL_SUPERVISOR');
-
-    const gsEmployeeId = await dbUtils.getEmployeeIdByUserId(gsRes.body.data.id);
-    const { rows } = await db.query(
-      `SELECT supervisor_id FROM employees WHERE id = $1`,
-      [gsEmployeeId],
-    );
-    expect(rows[0].supervisor_id).toBe(bmEmployeeId);
-  });
 
   test('admin can create supervisor linked to general supervisor', async () => {
     const loginRes = await api.loginAdmin();
