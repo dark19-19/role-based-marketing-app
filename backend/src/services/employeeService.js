@@ -21,7 +21,22 @@ class EmployeeService {
 
       // General Supervisor
       if (role === "GENERAL_SUPERVISOR") {
-        finalSupervisor = null;
+        if (!supervisorId) {
+          throw new Error("يجب تحديد مدير الفرع");
+        }
+
+        const supervisor =
+          await employeeRepo.findEmployeeWithRole(supervisorId);
+
+        if (!supervisor) {
+          throw new Error("مدير الفرع غير موجود");
+        }
+
+        if (supervisor.role !== "BRANCH_MANAGER") {
+          throw new Error("المشرف يجب أن يكون مدير فرع");
+        }
+
+        finalSupervisor = supervisorId;
       }
 
       // Supervisor

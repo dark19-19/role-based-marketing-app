@@ -46,6 +46,10 @@ class DBHelper {
       );
     `);
   }
+
+  async close() {
+    await this.pool.end();
+  }
 }
 
 const db = new DBHelper();
