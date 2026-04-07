@@ -10,6 +10,7 @@ const orderCommissionRepo = require("../data/orderCommissionRepository");
 const TYPES = require("../utils/walletTransactionTypes");
 const adminRepo = require("../data/adminRepository");
 const notificationHelper = require("../helpers/notificationHelper");
+const orderCommentService = require("../services/orderCommentService");
 
 class OrderService {
   async createOrder(user, payload, client) {
@@ -151,6 +152,9 @@ class OrderService {
 
     await orderRepository.updateStatus(orderId, "APPROVED");
 
+    // Delete all comments for this order (force delete when order is approved)
+    await orderCommentService.deleteCommentsByOrderId(orderId, client);
+
     const marketer = await employeeRepository.findById(order.marketer_id);
     const user_id = marketer.user_id;
     await notificationHelper.notify(
@@ -265,6 +269,9 @@ class OrderService {
     }
 
     await orderRepository.updateStatus(orderId, "REJECTED", client);
+
+    // Delete all comments for this order (force delete when order is rejected)
+    await orderCommentService.deleteCommentsByOrderId(orderId, client);
 
     const marketer = await employeeRepository.findById(order.marketer_id);
     const user_id = marketer.user_id;
