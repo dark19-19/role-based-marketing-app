@@ -13,6 +13,5 @@ router.delete('/commissions/:id',auth, requireRoles(['ADMIN']) ,commissionContro
 
 router.get('/commissions',auth, requireRoles(['ADMIN']) ,commissionController.list);
 router.get('/commissions/:id', auth, requireRoles(['ADMIN']),commissionController.getById);
-// router.get('/product/:productId',auth, requireRoles(['ADMIN']) ,commissionController.getByProductId);
 
 module.exports = router;

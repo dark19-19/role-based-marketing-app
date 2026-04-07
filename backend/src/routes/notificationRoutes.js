@@ -29,8 +29,4 @@ router.put(
   notificationController.markAllAsRead,
 );
 
-const helper = require("../helpers/notificationHelper");
-
-router.post("/notifications", auth, helper.notify);
-
 module.exports = router;
