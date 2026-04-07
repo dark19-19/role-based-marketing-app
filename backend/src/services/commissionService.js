@@ -35,13 +35,13 @@ class CommissionService {
 
     }
 
-    async delete(id) {
+    async delete(id, client) {
 
         const existing = await commissionRepository.findById(id);
 
         if (!existing) throw new Error('Commission not found');
 
-        await commissionRepository.delete(id);
+        await commissionRepository.delete(id, client);
 
     }
 

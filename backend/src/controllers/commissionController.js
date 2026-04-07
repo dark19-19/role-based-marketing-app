@@ -39,8 +39,8 @@ class CommissionController {
 
         try {
 
-            await db.runInTransaction(async () => {
-                await commissionService.delete(req.params.id);
+            await db.runInTransaction(async (client) => {
+                await commissionService.delete(req.params.id, client);
             });
 
             res.json({success: true});
