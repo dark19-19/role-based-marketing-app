@@ -53,7 +53,9 @@ class CommissionRepository {
     }
     async delete(id, client) {
 
-        await client.query(`
+        const queryClient = client || db;
+
+        await queryClient.query(`
       DELETE FROM commission_settings
       WHERE id = $1
     `, [id]);

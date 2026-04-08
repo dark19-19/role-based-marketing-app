@@ -34,7 +34,8 @@ const processImage = async (req, res, next) => {
 
     const imageId = randomUUID();
     const filename = `${imageId}.webp`; // تحويل إلى webp للضغط
-    const uploadPath = path.join(__dirname, "../../uploads", filename);
+    const baseUploadsDir = process.env.NODE_ENV === 'test' ? 'uploads/test_photos' : 'uploads';
+    const uploadPath = path.join(__dirname, "../../", baseUploadsDir, filename);
 
     // التأكد من وجود المجلد (للاحتياط)
     const uploadsDir = path.dirname(uploadPath);
@@ -55,7 +56,7 @@ const processImage = async (req, res, next) => {
       .toFile(uploadPath);
 
     // تخزين المسار النسبي في req
-    req.imagePath = `/uploads/${filename}`;
+    req.imagePath = `/${baseUploadsDir}/${filename}`;
     console.log(`Image processed successfully: ${req.imagePath}`);
     next();
   } catch (err) {

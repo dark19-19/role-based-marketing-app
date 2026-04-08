@@ -37,7 +37,10 @@ class ProductImageService {
 
     async deleteImage(imageId) {
 
-        await productImageRepo.softDelete(imageId);
+        const deleted = await productImageRepo.softDelete(imageId);
+        if (!deleted) {
+            throw new Error('image not found');
+        }
 
         return {message: "image deleted"};
 
@@ -49,7 +52,12 @@ class ProductImageService {
             throw new Error('new order required');
         }
 
-        return await productImageRepo.updateOrder(imageId, newOrder);
+        const updated = await productImageRepo.updateOrder(imageId, newOrder);
+        if (!updated) {
+            throw new Error('image not found');
+        }
+
+        return updated;
 
     }
 
@@ -57,7 +65,11 @@ class ProductImageService {
         if (!Array.isArray(orderedIds)) {
             throw new Error('Array of image IDs required');
         }
-        return await productImageRepo.bulkUpdateOrder(orderedIds);
+        const updated = await productImageRepo.bulkUpdateOrder(orderedIds);
+        if (updated !== orderedIds.length) {
+            throw new Error('image not found');
+        }
+        return updated;
     }
 
 }

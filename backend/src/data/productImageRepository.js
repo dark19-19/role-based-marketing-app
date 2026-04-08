@@ -74,15 +74,19 @@ SET deleted_at=NOW()
 WHERE id=$1
 `;
 
-        await db.query(sql, [imageId]);
+        const result = await db.query(sql, [imageId]);
+        return result.rowCount;
 
     }
 
     async bulkUpdateOrder(orderedIds) {
+        let updated = 0;
         for (let i = 0; i < orderedIds.length; i++) {
             const sql = `UPDATE product_images SET sort_order = $1 WHERE id = $2`;
-            await db.query(sql, [i, orderedIds[i]]);
+            const result = await db.query(sql, [i, orderedIds[i]]);
+            updated += result.rowCount;
         }
+        return updated;
     }
 
 }

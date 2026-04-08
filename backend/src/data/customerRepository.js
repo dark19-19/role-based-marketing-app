@@ -161,6 +161,9 @@ class CustomerRepository {
     SELECT
       c.id,
       c.user_id,
+      c.referred_by,
+      c.first_marketer_id,
+      c.governorate_id,
 
       (u.first_name || ' ' || u.last_name) AS full_name,
       u.phone,
@@ -197,6 +200,25 @@ class CustomerRepository {
 
         return rows[0] || null;
 
+    }
+
+    async findByPhoneNumber(phone) {
+        const { rows } = await db.query(
+            `
+                SELECT
+                    c.id AS customer_id,
+                    c.user_id,
+                    u.phone,
+                    u.first_name,
+                    u.last_name
+                FROM customers c
+                JOIN users u ON u.id = c.user_id
+                WHERE u.phone = $1
+                LIMIT 1
+            `,
+            [phone]
+        );
+        return rows[0] || null;
     }
 
     async findByUserId(userId) {

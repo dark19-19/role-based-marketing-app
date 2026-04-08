@@ -119,9 +119,62 @@ async function getEmployeeIdByUserId(userId) {
   return rows[0]?.id || null;
 }
 
+async function createCategoryDirect(name) {
+  const id = randomUUID();
+  await db.query(
+    `
+      INSERT INTO categories (id, name)
+      VALUES ($1, $2)
+    `,
+    [id, name],
+  );
+  return id;
+}
+
+async function createProductDirect({ name, categoryId, price = 10, quantity = 100 }) {
+  const id = randomUUID();
+  await db.query(
+    `
+      INSERT INTO products (id, name, description, price, quantity, category_id)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `,
+    [id, name, 'test product', price, quantity, categoryId],
+  );
+  return id;
+}
+
+async function createNotificationDirect({ userId, title, message, isRead = false }) {
+  const { rows } = await db.query(
+    `
+      INSERT INTO notifications (user_id, title, message, is_read)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id
+    `,
+    [userId, title, message, isRead],
+  );
+  return rows[0].id;
+}
+
+async function createCommissionDirect({ productId = null, company = 30, gs = 10, supervisor = 10 }) {
+  const id = randomUUID();
+  await db.query(
+    `
+      INSERT INTO commission_settings
+      (id, product_id, company_percentage, general_supervisor_percentage, supervisor_percentage)
+      VALUES ($1, $2, $3, $4, $5)
+    `,
+    [id, productId, company, gs, supervisor],
+  );
+  return id;
+}
+
 module.exports = {
   resetDatabase,
   seedBaseData,
   createBranch,
   getEmployeeIdByUserId,
+  createCategoryDirect,
+  createProductDirect,
+  createNotificationDirect,
+  createCommissionDirect,
 };

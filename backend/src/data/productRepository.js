@@ -3,24 +3,22 @@ const db = require('../helpers/DBHelper');
 class ProductRepository {
 
   async createProductWithImage(product) {
-
-    const client = await db.getClient();
-
-      const sql = `
+    const sql = `
         INSERT INTO products
         (name, description, price, quantity, category_id)
         VALUES ($1,$2,$3,$4,$5)
-        RETURNING name, description, price, quantity, category_id
+        RETURNING *
       `;
 
-      const {rows} = await client.query(sql, [
-        product.name,
-        product.description,
-        product.price,
-        product.quantity,
-        product.category_id
-      ]);
-       return rows[0] || null;
+    const { rows } = await db.query(sql, [
+      product.name,
+      product.description,
+      product.price,
+      product.quantity,
+      product.category_id,
+    ]);
+
+    return rows[0] || null;
 
   }
 

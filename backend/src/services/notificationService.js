@@ -27,15 +27,24 @@ class NotificationService {
   }
 
   async markAsRead(id, userId) {
-    await notificationRepo.markAsRead(id, userId);
+    const updated = await notificationRepo.markAsRead(id, userId);
+    if (!updated) {
+      throw new Error("Notification not found");
+    }
   }
 
   async markAllAsRead(userId) {
-    await notificationRepo.markAllAsRead(userId);
+    const updated = await notificationRepo.markAllAsRead(userId);
+    if (!updated) {
+      throw new Error("Notifications not found");
+    }
   }
 
   async delete(id, userId) {
-    await notificationRepo.softDelete(id, userId);
+    const updated = await notificationRepo.softDelete(id, userId);
+    if (!updated) {
+      throw new Error("Notification not found");
+    }
   }
 
   async getCount(userId) {

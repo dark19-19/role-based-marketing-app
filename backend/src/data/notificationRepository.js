@@ -88,7 +88,7 @@ class NotificationRepository {
   }
 
   async markAsRead(id, userId) {
-    await db.query(
+    const result = await db.query(
       `
       UPDATE notifications
       SET is_read = TRUE
@@ -97,10 +97,12 @@ class NotificationRepository {
     `,
       [id, userId],
     );
+
+    return result.rowCount;
   }
 
   async softDelete(id, userId) {
-    await db.query(
+    const result = await db.query(
       `
       UPDATE notifications
       SET deleted_at = NOW()
@@ -109,6 +111,8 @@ class NotificationRepository {
     `,
       [id, userId],
     );
+
+    return result.rowCount;
   }
 
   async getCount(userId) {
@@ -141,7 +145,7 @@ class NotificationRepository {
   }
 
   async markAllAsRead(userId) {
-    await db.query(
+    const result = await db.query(
       `
       UPDATE notifications
       SET is_read = TRUE
@@ -150,7 +154,10 @@ class NotificationRepository {
     `,
       [userId],
     );
+
+    return result.rowCount;
   }
+
 
   async getActiveCount() {
     const { rows } = await db.query(

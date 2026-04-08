@@ -17,11 +17,15 @@ class CustomerService {
             throw new Error('Employee not found');
         }
 
+        const existingCustomer = await customerRepository.findByPhoneNumber(payload.phone);
+        if (existingCustomer) {
+            throw new Error('رقم الهاتف مستخدم مسبقاً');
+        }
+
         const role = await roleRepository.findByName('CUSTOMER');
 
         const passwordHash = await bcrypt.hash(payload.password, 10);
-        console.log(passwordHash);
-        console.log(payload.password)
+       
 
         const newUserId = randomUUID();
 

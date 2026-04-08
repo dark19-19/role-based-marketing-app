@@ -19,10 +19,19 @@ app.use("/uploads", express.static(uploadsDir));
 
 app.use(cors());
 app.use(express.json());
-app.use(rateLimiter);
+if (process.env.NODE_ENV !== "test") {
+  app.use(rateLimiter);
+}
 
 app.use(routes);
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
+app.use((err, _req, res, _next) => {
+  res.status(400).json({
+    success: false,
+    error: err.message || "Error",
+  });
+});
 
 module.exports = app;

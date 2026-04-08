@@ -1,6 +1,7 @@
 const { verify } = require('../helpers/JWTHelper');
 const userRepo = require('../data/userRepository');
 const adminRepo = require('../data/adminRepository');
+const customerRepo = require('../data/customerRepository');
 
 async function authMiddleware(req, res, next) {
   const header = req.headers['authorization'] || '';
@@ -14,7 +15,14 @@ async function authMiddleware(req, res, next) {
   const rec = await userRepo.getTokenByValue(token);
   if (rec && rec.revoked) return res.status(401).json({ error: 'Token revoked' });
 
-  req.user = { id: payload.sub, phone: payload.phone ,role: payload.role, token };
+  req.user = { id: payload.sub, phone: payload.phone, role: payload.role, token };
+
+  if (req.user.role === 'CUSTOMER') {
+    const customer = await customerRepo.findByUserIdWithActive(req.user.id);
+    if (customer) {
+      req.user.customer_id = customer.id;
+    }
+  }
   next();
 }
 

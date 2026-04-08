@@ -40,6 +40,7 @@ class OrderController {
       await db.runInTransaction(async (client) => {
         await orderService.rejectOrder(req.user, req.params.id, client);
       });
+      res.json({ success: true });
     } catch (err) {
       res.status(400).json({ success: false, message: err.message });
     }

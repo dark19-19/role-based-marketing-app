@@ -23,6 +23,28 @@ async function adminCreateUser(token, payload) {
     .send(payload);
 }
 
+async function createEmployee(token, payload) {
+  return await api.request(api.app)
+    .post('/api/employees')
+    .set(api.authHeader(token))
+    .send(payload);
+}
+
+async function createOrder(token, payload) {
+  return await api.request(api.app)
+    .post('/api/orders')
+    .set(api.authHeader(token))
+    .send(payload);
+}
+
+async function getUserIdByCustomerId(customerId) {
+  const { rows } = await db.query(
+    `SELECT user_id FROM customers WHERE id = $1 LIMIT 1`,
+    [customerId],
+  );
+  return rows[0]?.user_id || null;
+}
+
 async function createStaffChain({ token, branchId, phoneBase = 990000100 }) {
   const bmPhone = `09${String(phoneBase).padStart(8, '0')}`;
   const gsPhone = `09${String(phoneBase + 1).padStart(8, '0')}`;
@@ -38,6 +60,7 @@ async function createStaffChain({ token, branchId, phoneBase = 990000100 }) {
     role: 'BRANCH_MANAGER',
     branch_id: branchId,
   });
+  if (!bmRes.body.data) throw new Error('BM create failed: ' + JSON.stringify(bmRes.body));
   const bmUserId = bmRes.body.data.id;
   const bmEmployeeId = await dbUtils.getEmployeeIdByUserId(bmUserId);
 
@@ -86,6 +109,8 @@ module.exports = {
   getAnyGovernorateId,
   createBranch,
   adminCreateUser,
+  createEmployee,
+  createOrder,
+  getUserIdByCustomerId,
   createStaffChain,
 };
-
