@@ -67,6 +67,12 @@ class SalaryRequestService {
 
     async approveRequest(requestId) {
         return db.runInTransaction(async (client) => {
+            const request = await salaryRepo.findById(requestId);
+            if (!request) throw new Error('Salary request not found');
+            if (request.status !== STATUS.PENDING) {
+                throw new Error('Salary request status is not pending');
+            }
+
             const transactions = await salaryRepo.getRequestTransactions(requestId);
             const ids = transactions.map(t => t.id);
 
@@ -95,6 +101,12 @@ class SalaryRequestService {
 
     async rejectRequest(requestId) {
         return db.runInTransaction(async (client) => {
+            const request = await salaryRepo.findById(requestId);
+            if (!request) throw new Error('Salary request not found');
+            if (request.status !== STATUS.PENDING) {
+                throw new Error('Salary request status is not pending');
+            }
+
             const transactions = await salaryRepo.getRequestTransactions(requestId);
             const ids = transactions.map(t => t.id);
 
@@ -159,6 +171,9 @@ class SalaryRequestService {
 
             // Get the transaction details
             const transactions = await salaryRepo.getRequestTransactions(requestId);
+            if (transactions.length === 0) {
+                throw new Error('Request has no transactions');
+            }
             const transaction = transactions.find(t => t.id === transactionId);
             
             if (!transaction) {

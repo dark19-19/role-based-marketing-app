@@ -168,6 +168,35 @@ async function createCommissionDirect({ productId = null, company = 30, gs = 10,
   return id;
 }
 
+async function createWalletTransactionDirect({
+  employeeId,
+  amount,
+  type = 'BALANCE',
+  orderId = null,
+}) {
+  const id = randomUUID();
+  await db.query(
+    `
+      INSERT INTO wallet_transactions (id, employee_id, order_id, amount, type)
+      VALUES ($1, $2, $3, $4, $5)
+    `,
+    [id, employeeId, orderId, amount, type],
+  );
+  return id;
+}
+
+async function createSalaryRequestDirect({ employeeId, amount = 0, status = 'PENDING' }) {
+  const id = randomUUID();
+  await db.query(
+    `
+      INSERT INTO salary_requests (id, employee_id, requested_amount, status)
+      VALUES ($1, $2, $3, $4)
+    `,
+    [id, employeeId, amount, status],
+  );
+  return id;
+}
+
 module.exports = {
   resetDatabase,
   seedBaseData,
@@ -177,4 +206,6 @@ module.exports = {
   createProductDirect,
   createNotificationDirect,
   createCommissionDirect,
+  createWalletTransactionDirect,
+  createSalaryRequestDirect,
 };
