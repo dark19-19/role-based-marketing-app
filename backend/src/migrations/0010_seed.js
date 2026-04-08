@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const { randomUUID } = require('crypto');
 const roleSeeder = require('../seed/rolesSeed');
 const roleRepo = require('../data/roleRepository')
+const config = require('../config');
 
 module.exports = {
   name: '0010_seed',
@@ -15,8 +16,8 @@ module.exports = {
       const adminRoleId = adminRole.id;
 
       const admins = [
-        {first_name: "Asef", last_name: "Tritona", phone: '0912345678', password: '12345678' },
-        {first_name: "Dev", last_name: "Hub", phone: '0932068925', password: 'admin@admin.admin' },
+        {first_name: "Asef", last_name: "Tritona", phone: config.admin1Phone, password: config.admin1Password },
+        {first_name: "Dev", last_name: "Hub", phone: config.admin2Phone, password: config.admin2Password },
       ];
 
       for (const a of admins) {

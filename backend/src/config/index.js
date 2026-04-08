@@ -94,6 +94,10 @@ const config = {
   notificationsCleanupHour: parseNotificationCleanupHour(),
   notificationsMaxCount: parseNotificationMaxCount(),
   notificationsHardDeleteAfterDays: parseNotificationsHardDeleteAfterDays(),
+  admin1Phone: requiredEnv('ADMIN_1_PHONE'),
+  admin1Password: requiredEnv('ADMIN_1_PASSWORD'),
+  admin2Phone: requiredEnv('ADMIN_2_PHONE'),
+  admin2Password: requiredEnv('ADMIN_2_PASSWORD'),
 };
 
 module.exports = config;
