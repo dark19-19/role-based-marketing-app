@@ -14,7 +14,7 @@ router.post(
 router.get(
   '/products/:id/images',
   authMiddleware,
-  roleMiddleware(["ADMIN", "MARKETER", "SUPERVISOR", "GENERAL_SUPERVISOR", "BRANCH_MANAGER"]),
+  roleMiddleware(["ADMIN", "MARKETER", "SUPERVISOR", "GENERAL_SUPERVISOR", "BRANCH_MANAGER", "CUSTOMER"]),
   controller.listImages
 );
 

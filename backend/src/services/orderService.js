@@ -14,14 +14,23 @@ const orderCommentService = require("../services/orderCommentService");
 
 class OrderService {
   async createOrder(user, payload, client) {
-    const { customer_id, branch_id, items, sold_price, notes } = payload;
+    let { customer_id, branch_id, items, sold_price, notes } = payload;
 
     // 1️⃣ get customer
-    const customer = await customerRepository.findById(customer_id);
+    // For CUSTOMER role, find by user_id (since frontend sends user.id, not customer.id)
+    let customer;
+    if (user.role === "CUSTOMER") {
+      customer = await customerRepository.findByUserId(user.id);
+    } else {
+      customer = await customerRepository.findById(customer_id);
+    }
 
     if (!customer) {
       throw new Error("Customer not found");
     }
+
+    // Use the actual customer ID from the database
+    customer_id = customer.id;
 
     // 2️⃣ determine marketer_id
     let marketerId = null;
@@ -38,10 +47,10 @@ class OrderService {
       marketerId = employee.id;
     }
 
-    // Ensure marketerId is valid
-    if (!marketerId) {
-      throw new Error("Invalid marketerId: could not determine marketer");
-    }
+    // Allow null marketerId for self-registered customers (no referral)
+    // if (!marketerId) {
+    //   throw new Error("Invalid marketerId: could not determine marketer");
+    // }
 
     // 3️⃣ determine branch
     const branch = await branchRepository.findById(branch_id);
@@ -155,13 +164,27 @@ class OrderService {
     // Delete all comments for this order (force delete when order is approved)
     await orderCommentService.deleteCommentsByOrderId(orderId, client);
 
-    const marketer = await employeeRepository.findById(order.marketer_id);
-    const user_id = marketer.user_id;
-    await notificationHelper.notify(
-      user_id,
-      "تم قبول طلبك",
-      `تمت الموافقة على الطلب الذي قمت بإنشائه من قبل مدير الفرع، وتم إيداع المبلغ في حسابك.`,
-    );
+    // Notify the customer
+    const customer = await customerRepository.findById(order.customer_id);
+    if (customer) {
+      await notificationHelper.notify(
+        customer.user_id,
+        "تم قبول طلبك",
+        `تمت الموافقة على طلبك رقم ${orderId.substring(0, 8)} من قبل مدير الفرع.`,
+      );
+    }
+
+    // Notify the marketer (only if order has a marketer)
+    if (order.marketer_id) {
+      const marketer = await employeeRepository.findById(order.marketer_id);
+      if (marketer) {
+        await notificationHelper.notify(
+          marketer.user_id,
+          "تم قبول طلبك",
+          `تمت الموافقة على الطلب الذي قمت بإنشائه من قبل مدير الفرع، وتم إيداع المبلغ في حسابك.`,
+        );
+      }
+    }
   }
 
   async _calculateDistributions(order, items) {
@@ -190,7 +213,10 @@ class OrderService {
     const extra = order.total_sold_price - mainTotal;
     const marketer = mainTotal - (company + gs + supervisor) + extra;
 
-    let marketerEmployee = await employeeRepository.findById(order.marketer_id);
+    // Handle orders without a marketer (self-registered customers)
+    let marketerEmployee = order.marketer_id
+      ? await employeeRepository.findById(order.marketer_id)
+      : null;
     let supervisorEmployee = marketerEmployee?.supervisor_id
       ? await employeeRepository.findById(marketerEmployee.supervisor_id)
       : null;
@@ -198,7 +224,28 @@ class OrderService {
       ? await employeeRepository.findById(supervisorEmployee.supervisor_id)
       : null;
 
-    // Hierarchy shifting
+    // If no marketer (self-registered customer), ALL profits go to company
+    if (!marketerEmployee) {
+      // Company gets everything: base company share + gs + supervisor + marketer shares
+      const totalProfit = mainTotal + extra;
+      const admin = await adminRepo.getCompanyAccount();
+      const distributions = [];
+
+      if (admin) {
+        distributions.push({
+          employee_id: admin.emp_id,
+          employee_name: "الشركة",
+          amount: totalProfit,
+        });
+      }
+
+      return {
+        distributions,
+        metadata: { company: totalProfit, gs: 0, supervisor: 0, marketer: 0 },
+      };
+    }
+
+    // Hierarchy shifting (for orders WITH a marketer)
     if (gsEmployee === null) {
       company += gs;
       gs = supervisor;
@@ -273,19 +320,41 @@ class OrderService {
     // Delete all comments for this order (force delete when order is rejected)
     await orderCommentService.deleteCommentsByOrderId(orderId, client);
 
-    const marketer = await employeeRepository.findById(order.marketer_id);
-    const user_id = marketer.user_id;
-    await notificationHelper.notify(
-      user_id,
-      "تم رفض الطلب",
-      `تم رفض الطلب الذي قمت بإنشائه من قبل مدير الفرع. يرجى مراجعة تفاصيل الطلب لمعرفة السبب.`,
-    );
+    // Notify the customer
+    const customer = await customerRepository.findById(order.customer_id);
+    if (customer) {
+      await notificationHelper.notify(
+        customer.user_id,
+        "تم رفض طلبك",
+        `تم رفض طلبك رقم ${orderId.substring(0, 8)} من قبل مدير الفرع. يرجى مراجعة تفاصيل الطلب لمعرفة السبب.`,
+      );
+    }
+
+    // Notify the marketer (only if order has a marketer)
+    if (order.marketer_id) {
+      const marketer = await employeeRepository.findById(order.marketer_id);
+      if (marketer) {
+        await notificationHelper.notify(
+          marketer.user_id,
+          "تم رفض الطلب",
+          `تم رفض الطلب الذي قمت بإنشائه من قبل مدير الفرع. يرجى مراجعة تفاصيل الطلب لمعرفة السبب.`,
+        );
+      }
+    }
   }
 
   async list(user, query) {
     try {
       const page = parseInt(query.page) || 1;
       const limit = parseInt(query.limit) || 20;
+
+      // For CUSTOMER role, fetch the customer_id from the database
+      if (user.role === "CUSTOMER") {
+        const customer = await customerRepository.findByUserId(user.id);
+        if (customer) {
+          user.customer_id = customer.id; // Attach to user object for orderRepository
+        }
+      }
 
       // 🎯 Build filters object from query parameters
       const filters = {};

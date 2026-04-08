@@ -100,7 +100,8 @@ class StatsService {
     if (user.role === 'CUSTOMER') {
       const customer = await customerRepo.findByUserId(user.id);
       if (!customer) {
-        throw new Error('Customer not found');
+        console.warn(`No customer record found for user: ${user.id}`);
+        return null; // Return null instead of throwing
       }
       return { type: 'customer', id: customer.id };
     }

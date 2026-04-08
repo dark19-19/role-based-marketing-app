@@ -2,6 +2,8 @@ const bcrypt = require("bcrypt");
 const { randomUUID } = require("crypto");
 const authRepo = require("../data/authRepository");
 const userRepo = require("../data/userRepository");
+const customerRepo = require("../data/customerRepository");
+const db = require("../helpers/DBHelper");
 const { buildAccessToken } = require("../helpers/JWTHelper");
 const { isString } = require("../helpers/GeneralHelper");
 const roleRepo = require("../data/roleRepository");
@@ -91,6 +93,18 @@ class AuthService {
         passwordHash: hash,
         role_id: role.id,
       });
+
+      // Create a customer record linked to this user
+      try {
+        await db.query(
+          `INSERT INTO customers (id, user_id, governorate_id, referred_by, first_marketer_id)
+           VALUES ($1, $2, NULL, NULL, NULL)`,
+          [randomUUID(), id]
+        );
+        console.log(`✅ Customer record created for user: ${id}`);
+      } catch (customerErr) {
+        console.warn(`⚠️ Warning: Could not create customer record:`, customerErr.message);
+      }
 
       const token = buildAccessToken({
         id,

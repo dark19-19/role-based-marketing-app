@@ -12,12 +12,12 @@ router.post('/products',
 
 router.get('/products',
     authMiddleware,
-    roleMiddleware(["ADMIN", "MARKETER", "SUPERVISOR", "GENERAL_SUPERVISOR", "BRANCH_MANAGER"]),
+    roleMiddleware(["ADMIN", "MARKETER", "SUPERVISOR", "GENERAL_SUPERVISOR", "BRANCH_MANAGER", "CUSTOMER"]),
      productController.listProducts);
 
 router.get('/products/:id',
     authMiddleware,
-    roleMiddleware(["ADMIN", "MARKETER", "SUPERVISOR", "GENERAL_SUPERVISOR", "BRANCH_MANAGER"]),
+    roleMiddleware(["ADMIN", "MARKETER", "SUPERVISOR", "GENERAL_SUPERVISOR", "BRANCH_MANAGER", "CUSTOMER"]),
     productController.getProduct);
 
 router.put('/products/:id',

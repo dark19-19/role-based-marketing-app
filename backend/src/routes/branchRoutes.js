@@ -29,14 +29,28 @@ router.delete(
 router.get(
   "/branches",
   authMiddleware,
-  requireRole(["ADMIN", "MARKETER", "SUPERVISOR", "BRANCH_MANAGER" , "GENERAL_SUPERVISOR"]),
+  requireRole([
+    "ADMIN",
+    "MARKETER",
+    "SUPERVISOR",
+    "BRANCH_MANAGER",
+    "GENERAL_SUPERVISOR",
+    "CUSTOMER",
+  ]),
   branchController.list,
 );
 
 router.get(
   "/branches/:id",
   authMiddleware,
-  requireRole(["ADMIN", "MARKETER", "SUPERVISOR", "BRANCH_MANAGER" , "GENERAL_SUPERVISOR"]),
+  requireRole([
+    "ADMIN",
+    "MARKETER",
+    "SUPERVISOR",
+    "BRANCH_MANAGER",
+    "GENERAL_SUPERVISOR",
+    "CUSTOMER",
+  ]),
   branchController.getById,
 );
 router.patch(
