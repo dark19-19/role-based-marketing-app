@@ -7,6 +7,7 @@ const branchRepository = require("../data/branchRepository");
 const commissionRepo = require("../data/commissionRepository");
 const walletRepo = require("../data/walletRepository");
 const orderCommissionRepo = require("../data/orderCommissionRepository");
+const deliveryPointRepo = require("../data/deliveryPointRepository");
 const TYPES = require("../utils/walletTransactionTypes");
 const adminRepo = require("../data/adminRepository");
 const notificationHelper = require("../helpers/notificationHelper");
@@ -14,7 +15,8 @@ const orderCommentService = require("../services/orderCommentService");
 
 class OrderService {
   async createOrder(user, payload, client) {
-    let { customer_id, branch_id, items, sold_price, notes } = payload;
+    let { customer_id, branch_id, delivery_point_id, items, sold_price, notes } =
+      payload;
 
     // 1️⃣ get customer
     // For CUSTOMER role, find by user_id (since frontend sends user.id, not customer.id)
@@ -59,6 +61,28 @@ class OrderService {
       throw new Error("Branch not found");
     }
 
+    if (user.role === "CUSTOMER" && !delivery_point_id) {
+      throw new Error("delivery point is required");
+    }
+
+    let deliveryFee = 0;
+    if (delivery_point_id) {
+      const dp = await deliveryPointRepo.findById(delivery_point_id);
+      if (!dp) {
+        throw new Error("Delivery point not found");
+      }
+      if (dp.branch_id !== branch.id) {
+        throw new Error("Delivery point does not belong to this branch");
+      }
+      const fee = Number(dp.fee);
+      deliveryFee = Number.isNaN(fee) ? 0 : fee;
+    }
+
+    const soldBase = Number(sold_price);
+    if (Number.isNaN(soldBase)) {
+      throw new Error("sold_price is invalid");
+    }
+
     // 4️⃣ get products
     const productIds = items.map((i) => i.product_id);
 
@@ -91,8 +115,9 @@ class OrderService {
         customer_id,
         marketer_id: marketerId,
         branch_id: branch.id,
+        delivery_point_id: delivery_point_id || null,
         total_price: totalPrice,
-        sold_price,
+        sold_price: soldBase + deliveryFee,
         notes,
       },
       client,
@@ -133,9 +158,18 @@ class OrderService {
     }
 
     const items = await orderItemRepository.findByOrderId(orderId);
+    let deliveryFee = 0;
+    if (order.delivery_point_id) {
+      const dp = await deliveryPointRepo.findById(order.delivery_point_id);
+      if (dp) {
+        const fee = Number(dp.fee);
+        deliveryFee = Number.isNaN(fee) ? 0 : fee;
+      }
+    }
     const { distributions, metadata } = await this._calculateDistributions(
       order,
       items,
+      deliveryFee,
     );
 
     // table: order_commissions
@@ -187,7 +221,7 @@ class OrderService {
     }
   }
 
-  async _calculateDistributions(order, items) {
+  async _calculateDistributions(order, items, deliveryFee = 0) {
     const commissions = await commissionRepo.getAll();
 
     let company = 0;
@@ -210,7 +244,8 @@ class OrderService {
     }
 
     const mainTotal = order.total_main_price;
-    const extra = order.total_sold_price - mainTotal;
+    const extra = order.total_sold_price - mainTotal - deliveryFee;
+    company += deliveryFee;
     const marketer = mainTotal - (company + gs + supervisor) + extra;
 
     // Handle orders without a marketer (self-registered customers)
@@ -226,8 +261,7 @@ class OrderService {
 
     // If no marketer (self-registered customer), ALL profits go to company
     if (!marketerEmployee) {
-      // Company gets everything: base company share + gs + supervisor + marketer shares
-      const totalProfit = mainTotal + extra;
+      const totalProfit = order.total_sold_price;
       const admin = await adminRepo.getCompanyAccount();
       const distributions = [];
 

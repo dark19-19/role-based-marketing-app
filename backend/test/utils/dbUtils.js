@@ -8,6 +8,7 @@ async function resetDatabase() {
       jwt_tokens,
       notifications,
       salary_requests,
+      delivery_points,
       wallet_transactions,
       order_commissions,
       order_items,
@@ -197,6 +198,18 @@ async function createSalaryRequestDirect({ employeeId, amount = 0, status = 'PEN
   return id;
 }
 
+async function createDeliveryPointDirect({ branchId, name, fee = 0 }) {
+  const id = randomUUID();
+  await db.query(
+    `
+      INSERT INTO delivery_points (id, branch_id, name, fee)
+      VALUES ($1, $2, $3, $4)
+    `,
+    [id, branchId, name, fee],
+  );
+  return id;
+}
+
 module.exports = {
   resetDatabase,
   seedBaseData,
@@ -208,4 +221,5 @@ module.exports = {
   createCommissionDirect,
   createWalletTransactionDirect,
   createSalaryRequestDirect,
+  createDeliveryPointDirect,
 };

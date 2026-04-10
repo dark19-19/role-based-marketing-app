@@ -48,6 +48,11 @@ describe('Order unit tests', () => {
     const { productId } = await setupCatalog();
     const { branchId, chain, adminToken } = await setupBranchAndChain();
     const governorateId = await factories.getAnyGovernorateId();
+    const deliveryPointId = await dbUtils.createDeliveryPointDirect({
+      branchId,
+      name: 'Kadmous',
+      fee: 5,
+    });
 
     const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
     const supervisorLogin = await api.login({ phone: chain.supervisor.phone, password: chain.supervisor.password });
@@ -68,12 +73,19 @@ describe('Order unit tests', () => {
     ];
 
     for (const creator of creators) {
-      const res = await factories.createOrder(creator.token, {
+      const basePayload = {
         customer_id: customerId,
         branch_id: branchId,
         sold_price: 10,
         notes: `${creator.role} order`,
         items: [{ product_id: productId, quantity: 1 }],
+      };
+      const payload =
+        creator.role === 'CUSTOMER'
+          ? { ...basePayload, delivery_point_id: deliveryPointId }
+          : basePayload;
+      const res = await factories.createOrder(creator.token, {
+        ...payload,
       });
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);

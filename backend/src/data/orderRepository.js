@@ -8,15 +8,16 @@ class OrderRepository {
     await client.query(
       `
       INSERT INTO orders
-      (id, customer_id, marketer_id, branch_id, total_main_price, total_sold_price, notes, status)
+      (id, customer_id, marketer_id, branch_id, delivery_point_id, total_main_price, total_sold_price, notes, status)
 
-      VALUES ($1,$2,$3,$4,$5,$6,$7,'PENDING')
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PENDING')
       `,
       [
         id,
         order.customer_id,
         order.marketer_id,
         order.branch_id,
+        order.delivery_point_id || null,
         order.total_price,
         order.sold_price,
         order.notes,
@@ -417,6 +418,9 @@ class OrderRepository {
                 o.customer_id,
                 o.status,
                 o.branch_id,
+                o.delivery_point_id,
+                dp.name AS delivery_point_name,
+                dp.fee AS delivery_fee,
                 o.created_at,
                 o.total_main_price AS total_price,
                 o.total_sold_price AS sold_price,
@@ -450,6 +454,7 @@ class OrderRepository {
 
             LEFT JOIN branches b ON b.id = o.branch_id
             LEFT JOIN governorates g ON g.id = b.governorate_id
+            LEFT JOIN delivery_points dp ON dp.id = o.delivery_point_id
 
             WHERE o.id = $1
         `,
