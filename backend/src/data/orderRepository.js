@@ -413,6 +413,8 @@ class OrderRepository {
       `
             SELECT
                 o.id,
+                o.marketer_id,
+                o.customer_id,
                 o.status,
                 o.branch_id,
                 o.created_at,
