@@ -32,7 +32,7 @@ class OrderCommentService {
     }
 
     // Authorization check for adding comments
-    const isAuthorized = this._checkAddCommentAuthorization(user, order, employee);
+    const isAuthorized = await this._checkAddCommentAuthorization(user, order, employee);
     if (!isAuthorized) {
       throw new Error("Unauthorized to add comment to this order");
     }
@@ -64,9 +64,16 @@ class OrderCommentService {
 
   /**
    * Check if user is authorized to add a comment
-   * Allowed: employees, branch managers, marketers
+   * Allowed: employees, branch managers, supervisors, general supervisors, marketers
+   *
+   * Rules:
+   * - BRANCH_MANAGER: orders in their branch
+   * - SUPERVISOR: orders in their branch OR orders from marketers directly under them
+   * - GENERAL_SUPERVISOR: orders in their branch OR orders from their hierarchy
+   *   (supervisors under them + marketers under those supervisors)
+   * - MARKETER: only their own orders
    */
-  _checkAddCommentAuthorization(user, order, employee) {
+  async _checkAddCommentAuthorization(user, order, employee) {
     const role = user.role;
 
     // Admin cannot add comments (based on requirements)
@@ -79,13 +86,51 @@ class OrderCommentService {
       return false;
     }
 
-    // Employees, branch managers, supervisors, general supervisors, marketers can add comments
-    // but they must be related to the order's branch
-    if (employee) {
+    if (!employee) {
+      return false;
+    }
+
+    // Branch managers can comment on orders in their branch
+    if (role === "BRANCH_MANAGER") {
       return employee.branch_id === order.branch_id;
     }
 
+    // Marketers can only comment on their own orders
+    if (role === "MARKETER") {
+      return order.marketer_id === employee.id;
+    }
+
+    // SUPERVISOR: can comment on orders in their branch OR orders from their team (marketers under them)
+    // OR their own orders (when the supervisor is the one who created the order)
+    if (role === "SUPERVISOR") {
+      if (employee.branch_id === order.branch_id) return true;
+      if (order.marketer_id === employee.id) return true; // own order
+      return await this._isMarketerUnderSupervisor(order.marketer_id, employee.id);
+    }
+
+    // GENERAL_SUPERVISOR: can comment on orders in their branch OR orders from their full hierarchy
+    // OR their own orders
+    if (role === "GENERAL_SUPERVISOR") {
+      if (employee.branch_id === order.branch_id) return true;
+      if (order.marketer_id === employee.id) return true; // own order
+      return await this._isInGeneralSupervisorHierarchy(order.marketer_id, employee.id);
+    }
+
     return false;
+  }
+
+  /**
+   * Check if a marketer is a direct subordinate of a supervisor
+   */
+  async _isMarketerUnderSupervisor(marketerId, supervisorId) {
+    return await orderRepository._marketerReportsToSupervisor(marketerId, supervisorId);
+  }
+
+  /**
+   * Check if a marketer is somewhere under a general supervisor's chain
+   */
+  async _isInGeneralSupervisorHierarchy(marketerId, generalSupervisorId) {
+    return await orderRepository._marketerReportsToGeneralSupervisor(marketerId, generalSupervisorId);
   }
 
   /**
@@ -113,7 +158,8 @@ class OrderCommentService {
 
   /**
    * Check if user is authorized to view comments
-   * Allowed: admin, branch manager of the branch, marketer who made the order
+   * Allowed: admin, branch manager of the branch, marketer who made the order,
+   *   supervisor/general_supervisor for their team orders
    */
   async _checkViewCommentAuthorization(user, order) {
     const role = user.role;
@@ -125,20 +171,34 @@ class OrderCommentService {
 
     // Get employee data
     const employee = await employeeRepository.findByUserId(user.id);
+    if (!employee) {
+      return false;
+    }
 
     // Marketer can view comments for their own orders
-    if (role === "MARKETER" && employee) {
+    if (role === "MARKETER") {
       return order.marketer_id === employee.id;
     }
 
     // Branch manager can view comments for orders in their branch
-    if (role === "BRANCH_MANAGER" && employee) {
+    if (role === "BRANCH_MANAGER") {
       return order.branch_id === employee.branch_id;
     }
 
-    // Supervisors and general supervisors can view comments for orders in their branch
-    if ((role === "SUPERVISOR" || role === "GENERAL_SUPERVISOR") && employee) {
-      return order.branch_id === employee.branch_id;
+    // Supervisor can view comments for orders in their branch OR their team orders
+    // OR their own orders
+    if (role === "SUPERVISOR") {
+      if (order.branch_id === employee.branch_id) return true;
+      if (order.marketer_id === employee.id) return true; // own order
+      return await this._isMarketerUnderSupervisor(order.marketer_id, employee.id);
+    }
+
+    // General supervisor can view comments for orders in their branch OR their hierarchy
+    // OR their own orders
+    if (role === "GENERAL_SUPERVISOR") {
+      if (order.branch_id === employee.branch_id) return true;
+      if (order.marketer_id === employee.id) return true; // own order
+      return await this._isInGeneralSupervisorHierarchy(order.marketer_id, employee.id);
     }
 
     return false;

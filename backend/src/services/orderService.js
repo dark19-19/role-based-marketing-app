@@ -500,9 +500,20 @@ class OrderService {
       if (order.status === "PENDING") {
         try {
           const items = await orderItemRepository.findByOrderId(orderId);
+
+          let deliveryFee = 0;
+          if (order.delivery_point_id) {
+            const dp = await deliveryPointRepo.findById(order.delivery_point_id);
+            if (dp) {
+              const fee = Number(dp.fee);
+              deliveryFee = Number.isNaN(fee) ? 0 : fee;
+            }
+          }
+
           const { distributions } = await this._calculateDistributions(
             order,
             items,
+            deliveryFee,
           );
           order.preview_transactions = distributions;
         } catch (e) {

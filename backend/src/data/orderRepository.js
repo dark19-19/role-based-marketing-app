@@ -570,6 +570,47 @@ class OrderRepository {
       ['CANCELLED', orderId],
     );
   }
+
+  /**
+   * Check if a marketer directly reports to a given supervisor
+   */
+  async _marketerReportsToSupervisor(marketerId, supervisorId) {
+    const { rows } = await db.query(
+      `
+      SELECT 1
+      FROM employees
+      WHERE id = $1 AND supervisor_id = $2
+    `,
+      [marketerId, supervisorId],
+    );
+    return rows.length > 0;
+  }
+
+  /**
+   * Check if a marketer is anywhere under a general supervisor's hierarchy
+   * (direct supervisors under GS + marketers under those supervisors)
+   */
+  async _marketerReportsToGeneralSupervisor(marketerId, generalSupervisorId) {
+    const { rows } = await db.query(
+      `
+      SELECT 1
+      FROM employees m
+      WHERE m.id = $1
+      AND (
+        -- Marketer reports directly to GS
+        m.supervisor_id = $2
+        OR
+        -- Marketer reports to a supervisor who reports to GS
+        m.supervisor_id IN (
+          SELECT s.id FROM employees s
+          WHERE s.supervisor_id = $2
+        )
+      )
+    `,
+      [marketerId, generalSupervisorId],
+    );
+    return rows.length > 0;
+  }
 }
 
 module.exports = new OrderRepository();
