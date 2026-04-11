@@ -28,7 +28,7 @@ class DeliveryPointRepository {
   async listForBranchPublic(branchId) {
     const { rows } = await db.query(
       `
-        SELECT id, name
+        SELECT id, name, fee
         FROM delivery_points
         WHERE branch_id = $1
         ORDER BY name ASC
