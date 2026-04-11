@@ -110,6 +110,10 @@ class OrderService {
     }
 
     // 6️⃣ create order
+    // For CUSTOMER role, the frontend already includes delivery fee in sold_price
+    // For other roles, add delivery fee on top of the raw product price
+    const finalSoldPrice = user.role === "CUSTOMER" ? soldBase : soldBase + deliveryFee;
+
     const orderId = await orderRepository.create(
       {
         customer_id,
@@ -117,7 +121,7 @@ class OrderService {
         branch_id: branch.id,
         delivery_point_id: delivery_point_id || null,
         total_price: totalPrice,
-        sold_price: soldBase + deliveryFee,
+        sold_price: finalSoldPrice,
         notes,
       },
       client,
