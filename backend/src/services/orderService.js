@@ -249,8 +249,10 @@ class OrderService {
 
     const mainTotal = order.total_main_price;
     const extra = order.total_sold_price - mainTotal - deliveryFee;
-    company += deliveryFee;
+    // Calculate marketer share BEFORE adding delivery fee to company
+    // (delivery fee goes to company but should NOT reduce marketer's share)
     const marketer = mainTotal - (company + gs + supervisor) + extra;
+    company += deliveryFee;
 
     // Handle orders without a marketer (self-registered customers)
     let marketerEmployee = order.marketer_id
