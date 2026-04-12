@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const { randomUUID } = require("crypto");
+const { randomBytes, createHash } = require("crypto");
 const authRepo = require("../data/authRepository");
 const userRepo = require("../data/userRepository");
 const customerRepo = require("../data/customerRepository");
@@ -7,6 +8,7 @@ const db = require("../helpers/DBHelper");
 const { buildAccessToken } = require("../helpers/JWTHelper");
 const { isString } = require("../helpers/GeneralHelper");
 const roleRepo = require("../data/roleRepository");
+const resetKeyRepo = require("../data/resetKeyRepository");
 
 class AuthService {
   async login({ phone, password }) {
@@ -63,12 +65,14 @@ class AuthService {
     }
   }
 
-  async registerCustomer({ first_name, last_name, phone, password }) {
+  async registerCustomer({ first_name, last_name, phone, password, question, answer }) {
     try {
       first_name = isString(first_name, "يرجى إدخال اسم أول صحيح");
       last_name = isString(last_name, "يرجى إدخال اسم ثاني صحيح");
       phone = isString(phone, "رقم الهاتف مطلوب");
       password = isString(password, "كلمة المرور مطلوبة");
+      question = isString(question, "السؤال مطلوب");
+      answer = isString(answer, "الإجابة مطلوبة");
 
       const existing = await authRepo.findUserByPhone(phone);
 
@@ -83,6 +87,7 @@ class AuthService {
       }
 
       const hash = await bcrypt.hash(password, 10);
+      const answerHash = await bcrypt.hash(answer, 10);
       const id = randomUUID();
 
       await authRepo.createCustomerUser({
@@ -92,6 +97,8 @@ class AuthService {
         phone,
         passwordHash: hash,
         role_id: role.id,
+        question,
+        answer: answerHash,
       });
 
       // Create a customer record linked to this user
@@ -131,6 +138,66 @@ class AuthService {
     } catch (err) {
       throw err;
     }
+  }
+
+  async getForgotPasswordQuestion({ phone }) {
+    phone = isString(phone, "رقم الهاتف مطلوب");
+    const user = await authRepo.findUserByPhone(phone);
+    if (!user || user.role !== "CUSTOMER") throw new Error("المستخدم غير موجود");
+    if (!user.is_active) throw new Error("الحساب غير مفعل");
+
+    const full = await userRepo.findById(user.id);
+    if (!full || !full.question) throw new Error("لا يوجد سؤال لهذا الحساب");
+
+    return { question: full.question };
+  }
+
+  async answerForgotPasswordQuestion({ phone, question, answer }) {
+    phone = isString(phone, "رقم الهاتف مطلوب");
+    question = isString(question, "السؤال مطلوب");
+    answer = isString(answer, "الإجابة مطلوبة");
+
+    const user = await authRepo.findUserByPhone(phone);
+    if (!user || user.role !== "CUSTOMER") throw new Error("المستخدم غير موجود");
+    if (!user.is_active) throw new Error("الحساب غير مفعل");
+
+    const full = await userRepo.findById(user.id);
+    if (!full || !full.question || !full.answer) throw new Error("لا يوجد سؤال لهذا الحساب");
+    if (full.question !== question) throw new Error("السؤال غير صحيح");
+
+    const ok = await bcrypt.compare(answer, full.answer);
+    if (!ok) throw new Error("الإجابة غير صحيحة");
+
+    const resetKey = randomBytes(32).toString("hex");
+    const pepper = process.env.JWT_SECRET || "";
+    const resetKeyHash = createHash("sha256").update(`${resetKey}.${pepper}`).digest("hex");
+
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    await resetKeyRepo.create({ userId: user.id, resetKeyHash, expiresAt });
+
+    return { reset_key: resetKey };
+  }
+
+  async resetPasswordWithKey({ reset_key, new_password, confirmed_password }) {
+    reset_key = isString(reset_key, "reset_key مطلوب");
+    new_password = isString(new_password, "كلمة المرور الجديدة مطلوبة");
+    confirmed_password = isString(confirmed_password, "تأكيد كلمة المرور مطلوب");
+
+    if (new_password !== confirmed_password) throw new Error("كلمتا المرور غير متطابقتين");
+
+    const pepper = process.env.JWT_SECRET || "";
+    const resetKeyHash = createHash("sha256").update(`${reset_key}.${pepper}`).digest("hex");
+    const rec = await resetKeyRepo.consumeValid(resetKeyHash);
+    if (!rec) throw new Error("key expired");
+
+    const user = await userRepo.findById(rec.user_id);
+    if (!user) throw new Error("المستخدم غير موجود");
+
+    const hash = await bcrypt.hash(new_password, 10);
+    await userRepo.updatePassword(user.id, hash);
+    await userRepo.revokeAllTokensForUser(user.id);
+
+    return { message: "تم تغيير كلمة المرور بنجاح" };
   }
   async me(user_id) {
     try {

@@ -3,13 +3,16 @@ const authService = require("../services/authService");
 class AuthController {
   registerCustomer = async (req, res) => {
     try {
-      const { first_name, last_name, phone, password } = req.body || {};
+      const { first_name, last_name, phone, password, question, answer } =
+        req.body || {};
 
       const result = await authService.registerCustomer({
         first_name,
         last_name,
         phone,
         password,
+        question,
+        answer,
       });
 
       res.status(201).json({
@@ -102,6 +105,44 @@ class AuthController {
         .json({ success: true, body: result, message: "تم تغيير كلمة المرور" });
     } catch (err) {
       res.status(400).json({ success: false, message: err.message });
+    }
+  };
+
+  forgotPasswordQuestion = async (req, res) => {
+    try {
+      const { phone } = req.body || {};
+      const result = await authService.getForgotPasswordQuestion({ phone });
+      res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  };
+
+  forgotPasswordAnswer = async (req, res) => {
+    try {
+      const { question, answer , phone } = req.body || {};
+      const result = await authService.answerForgotPasswordQuestion({
+        phone,
+        question,
+        answer,
+      });
+      res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  };
+
+  resetPassword = async (req, res) => {
+    try {
+      const { reset_key, new_password, confirmed_password } = req.body || {};
+      const result = await authService.resetPasswordWithKey({
+        reset_key,
+        new_password,
+        confirmed_password,
+      });
+      res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      res.status(400).json({ success: false, error: err.message });
     }
   };
 }

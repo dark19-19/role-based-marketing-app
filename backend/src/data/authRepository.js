@@ -27,13 +27,13 @@ class AuthRepository {
         return rows[0] || null;
     }
 
-    async createCustomerUser({ id,first_name, last_name, phone, passwordHash, role_id }) {
+    async createCustomerUser({ id, first_name, last_name, phone, passwordHash, role_id, question, answer }) {
         const sql = `
-      INSERT INTO users (id,first_name, last_name, phone, password, role_id)
-      VALUES ($1,$2,$3,$4,$5,$6)
+      INSERT INTO users (id,first_name, last_name, phone, password, role_id, question, answer)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
     `;
 
-        await db.query(sql, [id, first_name, last_name, phone, passwordHash, role_id]);
+        await db.query(sql, [id, first_name, last_name, phone, passwordHash, role_id, question || null, answer || null]);
     }
     async setLastLogin(phone) {
         const sql = 'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE phone = $1 AND is_active is true';

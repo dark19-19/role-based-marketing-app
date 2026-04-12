@@ -6,6 +6,7 @@ async function resetDatabase() {
   await db.query(`
     TRUNCATE TABLE
       jwt_tokens,
+      reset_keys,
       notifications,
       salary_requests,
       delivery_points,
