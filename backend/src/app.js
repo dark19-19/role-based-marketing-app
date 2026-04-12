@@ -7,6 +7,17 @@ const rateLimiter = require("./middleware/rateLimiter");
 
 const app = express();
 
+// TEMPORARY: For testing 5xx error screen
+// app.use((req, res, next) => {
+//   if (req.path.startsWith('/api')) {
+//     return res.status(500).json({
+//       success: false,
+//       message: "Testing 5xx error screen - Server is under heavy traffic"
+//     });
+//   }
+//   next();
+// });
+
 const uploadsDir = path.join(__dirname, "..", "uploads"); 
 
 if (!fs.existsSync(uploadsDir)) {
