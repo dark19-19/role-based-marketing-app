@@ -87,62 +87,63 @@ describe('Auth unit tests', () => {
     expect(relogin.body.success).toBe(true);
   });
 
-  test('customer register requires question and answer', async () => {
-    const res = await api.request(api.app).post('/api/auth/register').send({
-      first_name: 'Cust',
-      last_name: 'One',
-      phone: '0999000000',
-      password: 'custpass123',
-    });
-    expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
-  });
+  // test('customer register requires question and answer', async () => {
+  //   const res = await api.request(api.app).post('/api/auth/register').send({
+  //     first_name: 'Cust',
+  //     last_name: 'One',
+  //     phone: '0999000000',
+  //     password: 'custpass123',
+  //   });
+  //   expect(res.status).toBe(400);
+  //   expect(res.body.success).toBe(false);
+  // });
+  //
+  // test('customer can reset password via question/answer flow', async () => {
+  //   const phone = '0999000000';
+  //   const question = 'who is my favorite football player?';
+  //   const answer = 'messi';
+  //   const password = 'custpass123';
+  //
+  //   const register = await api.request(api.app).post('/api/auth/register').send({
+  //     first_name: 'Cust',
+  //     last_name: 'Two',
+  //     phone,
+  //     password,
+  //     question,
+  //     answer,
+  //   });
+  //   expect(register.status).toBe(201);
+  //   expect(register.body.success).toBe(true);
+  //
+  //   const qRes = await api.request(api.app)
+  //     .get('/api/auth/forgot-password/question')
+  //     .send({ phone });
+  //   expect(qRes.status).toBe(200);
+  //   expect(qRes.body.success).toBe(true);
+  //   expect(qRes.body.data.question).toBe(question);
+  //
+  //   const aRes = await api.request(api.app)
+  //     .post('/api/auth/forgot-password/answer')
+  //     .send({phone ,question, answer });
+  //   expect(aRes.status).toBe(200);
+  //   expect(aRes.body.success).toBe(true);
+  //   expect(typeof aRes.body.data.reset_key).toBe('string');
+  //
+  //   const resetKey = aRes.body.data.reset_key;
+  //   const newPass = 'newcustpass123';
+  //
+  //   const reset = await api.request(api.app)
+  //     .post('/api/auth/forgot-password/reset')
+  //     .send({ reset_key: resetKey, new_password: newPass, confirmed_password: newPass });
+  //   expect(reset.status).toBe(200);
+  //   expect(reset.body.success).toBe(true);
+  //
+  //   const oldLogin = await api.login({ phone, password });
+  //   expect(oldLogin.status).toBe(400);
+  //
+  //   const newLogin = await api.login({ phone, password: newPass });
+  //   expect(newLogin.status).toBe(200);
+  //   expect(newLogin.body.success).toBe(true);
+  // });
 
-  test('customer can reset password via question/answer flow', async () => {
-    const phone = '0999000000';
-    const question = 'who is my favorite football player?';
-    const answer = 'messi';
-    const password = 'custpass123';
-
-    const register = await api.request(api.app).post('/api/auth/register').send({
-      first_name: 'Cust',
-      last_name: 'Two',
-      phone,
-      password,
-      question,
-      answer,
-    });
-    expect(register.status).toBe(201);
-    expect(register.body.success).toBe(true);
-
-    const qRes = await api.request(api.app)
-      .get('/api/auth/forgot-password/question')
-      .send({ phone });
-    expect(qRes.status).toBe(200);
-    expect(qRes.body.success).toBe(true);
-    expect(qRes.body.data.question).toBe(question);
-
-    const aRes = await api.request(api.app)
-      .post('/api/auth/forgot-password/answer')
-      .send({phone ,question, answer });
-    expect(aRes.status).toBe(200);
-    expect(aRes.body.success).toBe(true);
-    expect(typeof aRes.body.data.reset_key).toBe('string');
-
-    const resetKey = aRes.body.data.reset_key;
-    const newPass = 'newcustpass123';
-
-    const reset = await api.request(api.app)
-      .post('/api/auth/forgot-password/reset')
-      .send({ reset_key: resetKey, new_password: newPass, confirmed_password: newPass });
-    expect(reset.status).toBe(200);
-    expect(reset.body.success).toBe(true);
-
-    const oldLogin = await api.login({ phone, password });
-    expect(oldLogin.status).toBe(400);
-
-    const newLogin = await api.login({ phone, password: newPass });
-    expect(newLogin.status).toBe(200);
-    expect(newLogin.body.success).toBe(true);
-  });
 });

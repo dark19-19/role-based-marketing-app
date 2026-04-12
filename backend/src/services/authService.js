@@ -65,14 +65,14 @@ class AuthService {
     }
   }
 
-  async registerCustomer({ first_name, last_name, phone, password, question, answer }) {
+  async registerCustomer({ first_name, last_name, phone, password, question=null, answer=null }) {
     try {
       first_name = isString(first_name, "يرجى إدخال اسم أول صحيح");
       last_name = isString(last_name, "يرجى إدخال اسم ثاني صحيح");
       phone = isString(phone, "رقم الهاتف مطلوب");
       password = isString(password, "كلمة المرور مطلوبة");
-      question = isString(question, "السؤال مطلوب");
-      answer = isString(answer, "الإجابة مطلوبة");
+      // question = isString(question, "السؤال مطلوب");
+      // answer = isString(answer, "الإجابة مطلوبة");
 
       const existing = await authRepo.findUserByPhone(phone);
 
@@ -87,7 +87,7 @@ class AuthService {
       }
 
       const hash = await bcrypt.hash(password, 10);
-      const answerHash = await bcrypt.hash(answer, 10);
+     // const answerHash = await bcrypt.hash(answer, 10);
       const id = randomUUID();
 
       await authRepo.createCustomerUser({
@@ -98,7 +98,7 @@ class AuthService {
         passwordHash: hash,
         role_id: role.id,
         question,
-        answer: answerHash,
+        answer: answer,
       });
 
       // Create a customer record linked to this user

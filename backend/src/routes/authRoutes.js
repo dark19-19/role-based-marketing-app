@@ -7,9 +7,9 @@ router.post("/auth/login", authController.login);
 
 router.post("/auth/register", authController.registerCustomer);
 
-router.get("/auth/forgot-password/question", authController.forgotPasswordQuestion);
-router.post("/auth/forgot-password/answer", authController.forgotPasswordAnswer);
-router.post("/auth/forgot-password/reset", authController.resetPassword);
+// router.get("/auth/forgot-password/question", authController.forgotPasswordQuestion);
+// router.post("/auth/forgot-password/answer", authController.forgotPasswordAnswer);
+// router.post("/auth/forgot-password/reset", authController.resetPassword);
 
 router.get("/auth/me", authMiddleware, authController.me);
 

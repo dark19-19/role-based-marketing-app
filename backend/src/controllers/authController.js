@@ -3,7 +3,14 @@ const authService = require("../services/authService");
 class AuthController {
   registerCustomer = async (req, res) => {
     try {
-      const { first_name, last_name, phone, password, question, answer } =
+      const {
+        first_name,
+        last_name,
+        phone,
+        password,
+      //  question,
+        // answer
+      } =
         req.body || {};
 
       const result = await authService.registerCustomer({
@@ -11,8 +18,8 @@ class AuthController {
         last_name,
         phone,
         password,
-        question,
-        answer,
+        // question,
+        // answer,
       });
 
       res.status(201).json({
