@@ -89,11 +89,16 @@ class SalaryRequestRepository {
         `, [status, id]);
     }
 
-    async listPaginated({ limit, offset, role, employeeId, branchId }) {
+    async listPaginated({ limit, offset, role, employeeId, branchId, status }) {
 
         let conditions = [];
         let values = [];
         let idx = 1;
+
+        if (status && status !== 'ALL') {
+             conditions.push(`sr.status = $${idx++}`);
+             values.push(status);
+        }
 
         if (role === 'MARKETER' || role === 'SUPERVISOR' || role === 'GENERAL_SUPERVISOR') {
             conditions.push(`sr.employee_id = $${idx++}`);

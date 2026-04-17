@@ -58,11 +58,13 @@ class SalaryRequestController {
 
             const page = Number(req.query.page) || 1;
             const limit = Number(req.query.limit) || 20;
+            const status = req.query.status;
 
             const result = await salaryService.listPaginated(
                 req.user,
                 page,
-                limit
+                limit,
+                status
             );
 
             res.json({

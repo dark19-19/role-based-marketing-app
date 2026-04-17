@@ -133,7 +133,7 @@ class SalaryRequestService {
         });
     }
 
-    async listPaginated(user, page = 1, limit = 20) {
+    async listPaginated(user, page = 1, limit = 20, status = null) {
         const offset = (page - 1) * limit;
         const employee = await employeeRepo.findByUserId(user.id);
 
@@ -142,7 +142,8 @@ class SalaryRequestService {
             offset,
             role: user.role,
             employeeId: employee ? employee.id : null,
-            branchId: employee ? employee.branch_id : null
+            branchId: employee ? employee.branch_id : null,
+            status
         });
 
         return {
