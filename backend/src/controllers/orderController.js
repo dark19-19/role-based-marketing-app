@@ -1,16 +1,21 @@
 const db = require("../helpers/DBHelper");
 const orderService = require("../services/orderService");
+const couponAvailabilityService = require("../services/couponAvailabilityService");
 
 class OrderController {
   async create(req, res) {
     try {
-      const orderId = await db.runInTransaction(async (client) => {
+      const result = await db.runInTransaction(async (client) => {
         return await orderService.createOrder(req.user, req.body, client);
       });
 
+      if (result?.updatedCoupon) {
+        await couponAvailabilityService.syncCoupon(result.updatedCoupon);
+      }
+
       return res.json({
         success: true,
-        data: { id: orderId },
+        data: { id: result.orderId },
       });
     } catch (err) {
       console.error(err);

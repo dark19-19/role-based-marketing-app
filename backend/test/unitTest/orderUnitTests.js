@@ -6,9 +6,10 @@ const db = require('../../src/helpers/DBHelper');
 
 describe('Order unit tests', () => {
   async function setupCatalog() {
-    const categoryId = await dbUtils.createCategoryDirect('OrdersCat');
+    const suffix = randomUUID().slice(0, 6);
+    const categoryId = await dbUtils.createCategoryDirect(`OrdersCat_${suffix}`);
     const productId = await dbUtils.createProductDirect({
-      name: 'OrdersProduct',
+      name: `OrdersProduct_${suffix}`,
       categoryId,
       price: 10,
       quantity: 100,
@@ -29,6 +30,11 @@ describe('Order unit tests', () => {
     return { adminToken, branchId, chain };
   }
 
+  async function getBranchGovernorateId(branchId) {
+    const { rows } = await db.query(`SELECT governorate_id FROM branches WHERE id = $1`, [branchId]);
+    return rows[0]?.governorate_id || null;
+  }
+
   async function createCustomerViaMarketer({ marketerToken, governorateId, phone = '0996000001' }) {
     const res = await api.request(api.app)
       .post('/api/customers')
@@ -47,7 +53,7 @@ describe('Order unit tests', () => {
   test('(Marketer, supervisor, general supervisor, customer) can create an order', async () => {
     const { productId } = await setupCatalog();
     const { branchId, chain, adminToken } = await setupBranchAndChain();
-    const governorateId = await factories.getAnyGovernorateId();
+    const governorateId = await getBranchGovernorateId(branchId);
     const deliveryPointId = await dbUtils.createDeliveryPointDirect({
       branchId,
       name: 'Kadmous',
@@ -96,7 +102,7 @@ describe('Order unit tests', () => {
   test('same roles fails to create an order due to undefined creator (invalid token)', async () => {
     const { productId } = await setupCatalog();
     const { branchId } = await setupBranchAndChain();
-    const governorateId = await factories.getAnyGovernorateId();
+    const governorateId = await getBranchGovernorateId(branchId);
 
     const adminLogin = await api.loginAdmin();
     const adminToken = adminLogin.body.data.token;
@@ -145,7 +151,7 @@ describe('Order unit tests', () => {
   test('same roles fails to create an order due to invalid UUID (marketer employee not found)', async () => {
     const { productId } = await setupCatalog();
     const { branchId, chain } = await setupBranchAndChain();
-    const governorateId = await factories.getAnyGovernorateId();
+    const governorateId = await getBranchGovernorateId(branchId);
 
     const gsLogin = await api.login({ phone: chain.generalSupervisor.phone, password: chain.generalSupervisor.password });
     const gsToken = gsLogin.body.data.token;
@@ -188,8 +194,8 @@ describe('Order unit tests', () => {
 
   test('same roles fails to create an order due to invalid UUID (branch not found)', async () => {
     const { productId } = await setupCatalog();
-    const { chain } = await setupBranchAndChain();
-    const governorateId = await factories.getAnyGovernorateId();
+    const { branchId, chain } = await setupBranchAndChain();
+    const governorateId = await getBranchGovernorateId(branchId);
 
     const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
     const token = marketerLogin.body.data.token;
@@ -211,7 +217,7 @@ describe('Order unit tests', () => {
 
   test('same roles fails to create an order due to invalid UUIDs (products not found)', async () => {
     const { branchId, chain } = await setupBranchAndChain();
-    const governorateId = await factories.getAnyGovernorateId();
+    const governorateId = await getBranchGovernorateId(branchId);
 
     const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
     const token = marketerLogin.body.data.token;
@@ -233,10 +239,102 @@ describe('Order unit tests', () => {
     expect(res.body.message).toContain('Invalid product');
   });
 
+  test('customer can create order with valid coupon; fails if coupon is expired or already used', async () => {
+    const { productId } = await setupCatalog();
+    const { branchId } = await setupBranchAndChain();
+    const deliveryPointId = await dbUtils.createDeliveryPointDirect({
+      branchId,
+      name: 'CouponPoint',
+      fee: 5,
+    });
+
+    await dbUtils.createCouponDirect({
+      code: 'SAVE10',
+      discountPercentage: 10,
+      numberOfPeople: 1,
+    });
+
+    const registerOne = await api.request(api.app)
+      .post('/api/auth/register')
+      .send({
+        first_name: 'Cust',
+        last_name: 'One',
+        phone: '0996000501',
+        password: 'custpass123',
+        question: 'fav?',
+        answer: 'messi',
+      });
+    expect(registerOne.status).toBe(201);
+
+    const customerOneLogin = await api.login({ phone: '0996000501', password: 'custpass123' });
+    const tokenOne = customerOneLogin.body.data.token;
+
+    const firstOrder = await api.request(api.app)
+      .post('/api/orders')
+      .set(api.authHeader(tokenOne))
+      .send({
+        branch_id: branchId,
+        delivery_point_id: deliveryPointId,
+        sold_price: 15,
+        coupon_code: 'SAVE10',
+        items: [{ product_id: productId, quantity: 1 }],
+      });
+    expect(firstOrder.status).toBe(200);
+    expect(firstOrder.body.success).toBe(true);
+
+    const firstDetails = await api.request(api.app)
+      .get(`/api/orders/${firstOrder.body.data.id}`)
+      .set(api.authHeader(tokenOne));
+    expect(firstDetails.status).toBe(200);
+    expect(firstDetails.body.body.coupon_code).toBe('SAVE10');
+    expect(Number(firstDetails.body.body.discount_percentage)).toBe(10);
+    expect(Number(firstDetails.body.body.discount_amount)).toBe(1.5);
+    expect(Number(firstDetails.body.body.sold_price)).toBe(13.5);
+
+    const reusedBySameCustomer = await api.request(api.app)
+      .post('/api/orders')
+      .set(api.authHeader(tokenOne))
+      .send({
+        branch_id: branchId,
+        delivery_point_id: deliveryPointId,
+        sold_price: 15,
+        coupon_code: 'SAVE10',
+        items: [{ product_id: productId, quantity: 1 }],
+      });
+    expect(reusedBySameCustomer.status).toBe(400);
+    expect(reusedBySameCustomer.body.message).toBe('Coupon already used by this customer');
+
+    const registerTwo = await api.request(api.app)
+      .post('/api/auth/register')
+      .send({
+        first_name: 'Cust',
+        last_name: 'Two',
+        phone: '0996000502',
+        password: 'custpass123',
+        question: 'fav?',
+        answer: 'ronaldo',
+      });
+    expect(registerTwo.status).toBe(201);
+
+    const customerTwoLogin = await api.login({ phone: '0996000502', password: 'custpass123' });
+    const expiredForOther = await api.request(api.app)
+      .post('/api/orders')
+      .set(api.authHeader(customerTwoLogin.body.data.token))
+      .send({
+        branch_id: branchId,
+        delivery_point_id: deliveryPointId,
+        sold_price: 15,
+        coupon_code: 'SAVE10',
+        items: [{ product_id: productId, quantity: 1 }],
+      });
+    expect(expiredForOther.status).toBe(400);
+    expect(expiredForOther.body.message).toBe('Coupon expired');
+  });
+
   test('branch manager can approve order in his branch; fails due to invalid UUID or status not pending', async () => {
     const { productId } = await setupCatalog();
     const { branchId, chain } = await setupBranchAndChain();
-    const governorateId = await factories.getAnyGovernorateId();
+    const governorateId = await getBranchGovernorateId(branchId);
 
     const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
     const bmLogin = await api.login({ phone: chain.branchManager.phone, password: chain.branchManager.password });
@@ -277,7 +375,7 @@ describe('Order unit tests', () => {
   test('branch manager can reject an order; fails due to invalid UUID or status not pending', async () => {
     const { productId } = await setupCatalog();
     const { branchId, chain } = await setupBranchAndChain();
-    const governorateId = await factories.getAnyGovernorateId();
+    const governorateId = await getBranchGovernorateId(branchId);
 
     const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
     const bmLogin = await api.login({ phone: chain.branchManager.phone, password: chain.branchManager.password });
@@ -318,7 +416,7 @@ describe('Order unit tests', () => {
   test('roles can cancel orders with role rules; fail cases for status and not found', async () => {
     const { productId } = await setupCatalog();
     const { branchId, chain, adminToken } = await setupBranchAndChain();
-    const governorateId = await factories.getAnyGovernorateId();
+    const governorateId = await getBranchGovernorateId(branchId);
 
     const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
     const bmLogin = await api.login({ phone: chain.branchManager.phone, password: chain.branchManager.password });
@@ -384,7 +482,7 @@ describe('Order unit tests', () => {
   test('roles can list orders paginated; fails to list orders due to invalid token', async () => {
     const { productId } = await setupCatalog();
     const { branchId, chain, adminToken } = await setupBranchAndChain();
-    const governorateId = await factories.getAnyGovernorateId();
+    const governorateId = await getBranchGovernorateId(branchId);
 
     const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
     const bmLogin = await api.login({ phone: chain.branchManager.phone, password: chain.branchManager.password });
@@ -428,7 +526,7 @@ describe('Order unit tests', () => {
   test('roles can get the order details; fails due to invalid UUID (order not found)', async () => {
     const { productId } = await setupCatalog();
     const { branchId, chain } = await setupBranchAndChain();
-    const governorateId = await factories.getAnyGovernorateId();
+    const governorateId = await getBranchGovernorateId(branchId);
 
     const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
 

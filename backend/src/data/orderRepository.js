@@ -8,9 +8,9 @@ class OrderRepository {
     await client.query(
       `
       INSERT INTO orders
-      (id, customer_id, marketer_id, branch_id, delivery_point_id, total_main_price, total_sold_price, notes, status)
+      (id, customer_id, marketer_id, branch_id, delivery_point_id, coupon_id, discount_percentage, discount_amount, total_main_price, total_sold_price, notes, status)
 
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PENDING')
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'PENDING')
       `,
       [
         id,
@@ -18,6 +18,9 @@ class OrderRepository {
         order.marketer_id,
         order.branch_id,
         order.delivery_point_id || null,
+        order.coupon_id || null,
+        order.discount_percentage || null,
+        order.discount_amount || 0,
         order.total_price,
         order.sold_price,
         order.notes,
@@ -40,8 +43,9 @@ class OrderRepository {
     return rows[0] || null;
   }
 
-  async updateStatus(id, status) {
-    await db.query(
+  async updateStatus(id, status, client = null) {
+    const queryClient = client || db;
+    await queryClient.query(
       `
     UPDATE orders
     SET status = $1
@@ -215,6 +219,9 @@ class OrderRepository {
                     g.name AS governorate,
 
                     ro.status,
+                    ro.coupon_id,
+                    ro.discount_percentage,
+                    ro.discount_amount,
                     ro.total_main_price AS total_price,
                     ro.total_sold_price AS sold_price
 
@@ -249,6 +256,9 @@ class OrderRepository {
                     g.name AS governorate,
 
                     o.status,
+                    o.coupon_id,
+                    o.discount_percentage,
+                    o.discount_amount,
                     o.total_main_price AS total_price,
                     o.total_sold_price AS sold_price
 
@@ -419,6 +429,9 @@ class OrderRepository {
                 o.status,
                 o.branch_id,
                 o.delivery_point_id,
+                o.coupon_id,
+                o.discount_percentage,
+                o.discount_amount,
                 dp.name AS delivery_point_name,
                 dp.fee AS delivery_fee,
                 o.created_at,
@@ -436,7 +449,8 @@ class OrderRepository {
 
                 g.name AS branch_name,
 
-                g.name AS governorate
+                g.name AS governorate,
+                cpn.code AS coupon_code
 
             FROM orders o
 
@@ -455,6 +469,7 @@ class OrderRepository {
             LEFT JOIN branches b ON b.id = o.branch_id
             LEFT JOIN governorates g ON g.id = b.governorate_id
             LEFT JOIN delivery_points dp ON dp.id = o.delivery_point_id
+            LEFT JOIN coupons cpn ON cpn.id = o.coupon_id
 
             WHERE o.id = $1
         `,
@@ -519,6 +534,9 @@ class OrderRepository {
     SELECT
       id,
       status,
+      coupon_id,
+      discount_percentage,
+      discount_amount,
       total_main_price,
       total_sold_price,
       created_at

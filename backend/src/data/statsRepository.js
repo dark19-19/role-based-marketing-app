@@ -154,6 +154,9 @@ class StatsRepository {
         o.status,
         o.total_main_price,
         o.total_sold_price,
+        o.discount_percentage,
+        o.discount_amount,
+        cp.code AS coupon_code,
         o.created_at,
         cu.first_name || ' ' || cu.last_name AS customer_name,
         cu.phone AS customer_phone,
@@ -162,6 +165,7 @@ class StatsRepository {
       LEFT JOIN customers c ON c.id = o.customer_id
       LEFT JOIN users cu ON cu.id = c.user_id
       LEFT JOIN governorates g ON g.id = c.governorate_id
+      LEFT JOIN coupons cp ON cp.id = o.coupon_id
       WHERE o.marketer_id = $1 AND o.status != 'CANCELLED'
       ORDER BY o.created_at DESC
       LIMIT $2
@@ -203,6 +207,9 @@ class StatsRepository {
         o.status,
         o.total_main_price,
         o.total_sold_price,
+        o.discount_percentage,
+        o.discount_amount,
+        cp.code AS coupon_code,
         o.created_at,
         mu.first_name || ' ' || mu.last_name AS marketer_name,
         mu.phone AS marketer_phone,
@@ -213,6 +220,7 @@ class StatsRepository {
       LEFT JOIN users mu ON mu.id = me.user_id
       LEFT JOIN branches b ON b.id = o.branch_id
       LEFT JOIN governorates g ON g.id = b.governorate_id
+      LEFT JOIN coupons cp ON cp.id = o.coupon_id
       WHERE o.customer_id = $1 AND o.status != 'CANCELLED'
       ORDER BY o.created_at DESC
       LIMIT $2

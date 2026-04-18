@@ -2,6 +2,7 @@ const app = require("./app");
 const config = require("./config");
 const createNotificationCleanupJob = require("./jobs/notificationCleanupJob");
 const createNotificationPurgeJob = require("./jobs/notificationPurgeJob");
+const couponAvailabilityService = require("./services/couponAvailabilityService");
 
 const port = config.port || 3000;
 console.log("\n");
@@ -10,6 +11,10 @@ createNotificationCleanupJob().start();
 console.log("\n");
 console.log("notificaiton purge cron job initialized");
 createNotificationPurgeJob().start();
+
+couponAvailabilityService.initialize().catch((err) => {
+  console.error("coupon availability cache initialization failed:", err.message);
+});
 
 app.listen(port, () => {
   console.log("\n");

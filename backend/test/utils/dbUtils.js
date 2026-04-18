@@ -1,12 +1,15 @@
 const { randomUUID } = require('crypto');
 const bcrypt = require('bcrypt');
 const db = require('../../src/helpers/DBHelper');
+const couponAvailabilityService = require('../../src/services/couponAvailabilityService');
 
 async function resetDatabase() {
   await db.query(`
     TRUNCATE TABLE
       jwt_tokens,
       reset_keys,
+      coupon_usages,
+      coupons,
       notifications,
       salary_requests,
       delivery_points,
@@ -211,6 +214,40 @@ async function createDeliveryPointDirect({ branchId, name, fee = 0 }) {
   return id;
 }
 
+async function createCouponDirect({
+  code,
+  discountPercentage = 10,
+  numberOfPeople = 10,
+  usedCount = 0,
+}) {
+  const id = randomUUID();
+  await db.query(
+    `
+      INSERT INTO coupons (id, code, discount_percentage, number_of_people, used_count)
+      VALUES ($1, $2, $3, $4, $5)
+    `,
+    [id, String(code).trim().toUpperCase(), discountPercentage, numberOfPeople, usedCount],
+  );
+  await couponAvailabilityService.syncCoupon({
+    id,
+    code: String(code).trim().toUpperCase(),
+    discount_percentage: discountPercentage,
+    number_of_people: numberOfPeople,
+    used_count: usedCount,
+  });
+  return id;
+}
+
+async function attachCouponUsageDirect({ customerId, couponId, orderId }) {
+  await db.query(
+    `
+      INSERT INTO coupon_usages (customer_id, coupon_id, order_id)
+      VALUES ($1, $2, $3)
+    `,
+    [customerId, couponId, orderId],
+  );
+}
+
 module.exports = {
   resetDatabase,
   seedBaseData,
@@ -223,4 +260,6 @@ module.exports = {
   createWalletTransactionDirect,
   createSalaryRequestDirect,
   createDeliveryPointDirect,
+  createCouponDirect,
+  attachCouponUsageDirect,
 };

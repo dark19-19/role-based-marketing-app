@@ -8,14 +8,24 @@ const commissionRepo = require("../data/commissionRepository");
 const walletRepo = require("../data/walletRepository");
 const orderCommissionRepo = require("../data/orderCommissionRepository");
 const deliveryPointRepo = require("../data/deliveryPointRepository");
+const couponRepo = require("../data/couponRepository");
 const TYPES = require("../utils/walletTransactionTypes");
 const adminRepo = require("../data/adminRepository");
 const notificationHelper = require("../helpers/notificationHelper");
 const orderCommentService = require("../services/orderCommentService");
+const couponService = require("./couponService");
 
 class OrderService {
   async createOrder(user, payload, client) {
-    let { customer_id, branch_id, delivery_point_id, items, sold_price, notes } =
+    let {
+      customer_id,
+      branch_id,
+      delivery_point_id,
+      items,
+      sold_price,
+      notes,
+      coupon_code,
+    } =
       payload;
 
     // 1️⃣ get customer
@@ -65,6 +75,10 @@ class OrderService {
       throw new Error("delivery point is required");
     }
 
+    if (coupon_code && user.role !== "CUSTOMER") {
+      throw new Error("Coupons are available for customer orders only");
+    }
+
     let deliveryFee = 0;
     if (delivery_point_id) {
       const dp = await deliveryPointRepo.findById(delivery_point_id);
@@ -81,6 +95,13 @@ class OrderService {
     const soldBase = Number(sold_price);
     if (Number.isNaN(soldBase)) {
       throw new Error("sold_price is invalid");
+    }
+
+    if (user.role === "CUSTOMER" && coupon_code) {
+      const availability = await couponService.checkAvailability(coupon_code, user);
+      if (!availability.available && availability.reason === "already_used") {
+        throw new Error("Coupon already used by this customer");
+      }
     }
 
     // 4️⃣ get products
@@ -104,7 +125,7 @@ class OrderService {
       await productRepository.decreaseQuantity({
         product_id: product.id,
         quantity: item.quantity,
-      });
+      }, client);
 
       totalPrice += product.price * item.quantity;
     }
@@ -112,7 +133,36 @@ class OrderService {
     // 6️⃣ create order
     // For CUSTOMER role, the frontend already includes delivery fee in sold_price
     // For other roles, add delivery fee on top of the raw product price
-    const finalSoldPrice = user.role === "CUSTOMER" ? soldBase : soldBase + deliveryFee;
+    let finalSoldPrice =
+      user.role === "CUSTOMER" ? soldBase : soldBase + deliveryFee;
+    let coupon = null;
+    let discountAmount = 0;
+    let discountPercentage = null;
+
+    if (user.role === "CUSTOMER" && coupon_code) {
+      coupon = await couponRepo.findByCodeForUpdate(client, coupon_code);
+
+      if (!coupon) throw new Error("Coupon expired");
+
+      const alreadyUsed = await couponRepo.hasCustomerUsedCoupon(client, {
+        customerId: customer_id,
+        couponId: coupon.id,
+      });
+
+      if (alreadyUsed) {
+        throw new Error("Coupon already used by this customer");
+      }
+
+      if (Number(coupon.used_count) >= Number(coupon.number_of_people)) {
+        throw new Error("Coupon expired");
+      }
+
+      discountPercentage = Number(coupon.discount_percentage);
+      discountAmount = Number(
+        (finalSoldPrice * (discountPercentage / 100)).toFixed(2),
+      );
+      finalSoldPrice = Number(Math.max(0, finalSoldPrice - discountAmount).toFixed(2));
+    }
 
     const orderId = await orderRepository.create(
       {
@@ -120,6 +170,9 @@ class OrderService {
         marketer_id: marketerId,
         branch_id: branch.id,
         delivery_point_id: delivery_point_id || null,
+        coupon_id: coupon?.id || null,
+        discount_percentage: discountPercentage,
+        discount_amount: discountAmount,
         total_price: totalPrice,
         sold_price: finalSoldPrice,
         notes,
@@ -134,6 +187,17 @@ class OrderService {
     }));
 
     await orderItemRepository.bulkInsert(orderId, itemsWithPrice, client);
+
+    let updatedCoupon = null;
+    if (coupon) {
+      await couponRepo.attachCouponToOrder(client, {
+        customerId: customer_id,
+        couponId: coupon.id,
+        orderId,
+      });
+      updatedCoupon = await couponRepo.incrementUsedCount(client, coupon.id);
+    }
+
     const branchManager = await branchRepository.getBranchManager(branch.id);
 
     // Ensure branchManager is valid
@@ -147,7 +211,7 @@ class OrderService {
       "تم إنشاء طلب جديد وتم تحويله إلى فرعكم. يرجى مراجعة الطلب واتخاذ الإجراء المناسب.",
     );
 
-    return orderId;
+    return { orderId, updatedCoupon };
   }
 
   async approveOrder(user, orderId, client) {
@@ -197,7 +261,7 @@ class OrderService {
       }
     }
 
-    await orderRepository.updateStatus(orderId, "APPROVED");
+    await orderRepository.updateStatus(orderId, "APPROVED", client);
 
     // Delete all comments for this order (force delete when order is approved)
     await orderCommentService.deleteCommentsByOrderId(orderId, client);
@@ -352,7 +416,7 @@ class OrderService {
       await productRepository.increaseQuantity({
         product_id: item.product_id,
         quantity: item.quantity,
-      });
+      }, client);
     }
 
     await orderRepository.updateStatus(orderId, "REJECTED", client);

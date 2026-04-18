@@ -149,9 +149,10 @@ class ProductRepository {
     return rows;
 
   }
-  async decreaseQuantity({ product_id, quantity }) {
+  async decreaseQuantity({ product_id, quantity }, client = null) {
+    const queryClient = client || db;
 
-    const { rows } = await db.query(`
+    const { rows } = await queryClient.query(`
       UPDATE products
       SET quantity = quantity - $2,
           in_stock = CASE WHEN (quantity - $2) <= 0 THEN FALSE ELSE TRUE END
@@ -168,8 +169,9 @@ class ProductRepository {
 
   }
 
-  async increaseQuantity({ product_id, quantity }) {
-    const { rows } = await db.query(`
+  async increaseQuantity({ product_id, quantity }, client = null) {
+    const queryClient = client || db;
+    const { rows } = await queryClient.query(`
       UPDATE products
       SET quantity = quantity + $2,
           in_stock = CASE WHEN (quantity + $2) > 0 THEN TRUE ELSE FALSE END
