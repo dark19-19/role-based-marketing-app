@@ -163,11 +163,13 @@ class OrderService {
       }
 
       discountPercentage = Number(coupon.discount_percentage);
+      // Apply discount only on the base amount (excluding delivery fee)
+      const baseAmount = soldBase - deliveryFee;
       discountAmount = Number(
-        (finalSoldPrice * (discountPercentage / 100)).toFixed(2),
+        (baseAmount * (discountPercentage / 100)).toFixed(2),
       );
       finalSoldPrice = Number(
-        Math.max(0, finalSoldPrice - discountAmount).toFixed(2),
+        Math.max(0, baseAmount - discountAmount + deliveryFee).toFixed(2),
       );
     }
 
@@ -299,31 +301,166 @@ class OrderService {
   async _calculateDistributions(order, items, deliveryFee = 0) {
     const commissions = await commissionRepo.getAll();
 
+    console.log(
+      "[OrderService][_calculateDistributions] all commissions",
+      commissions,
+    );
+
     let company = 0;
     let gs = 0;
     let supervisor = 0;
 
+    const totalSoldPrice = Number(order.total_sold_price || 0);
+    const discountAmount = Number(order.discount_amount || 0);
+    const totalMainPrice = Number(order.total_main_price || 0);
+
+    console.log("[OrderService][_calculateDistributions] start", {
+      orderId: order.id,
+      total_sold_price: order.total_sold_price,
+      totalSoldPrice,
+      discount_amount: order.discount_amount,
+      discountAmount,
+      deliveryFee,
+      total_main_price: order.total_main_price,
+      totalMainPrice,
+      itemCount: items.length,
+    });
+
+    // Calculate original sold price before discount
+    const originalSoldPrice = totalSoldPrice + discountAmount;
+    const baseTotal = originalSoldPrice - deliveryFee;
+    const oldMainTotal = totalMainPrice;
+
+    console.log("[OrderService][_calculateDistributions] base values", {
+      originalSoldPrice,
+      baseTotal,
+      oldMainTotal,
+    });
+
+    // Helper function to get the most recent commission
+    const getMostRecentCommission = (commissionList) => {
+      if (!commissionList || commissionList.length === 0) return null;
+      // Sort by created_at descending and return the most recent
+      return [...commissionList].sort((a, b) => {
+        const dateA = new Date(a.created_at);
+        const dateB = new Date(b.created_at);
+        return dateB - dateA;
+      })[0];
+    };
+
+    // Separate specific and general commissions
+    const specificCommissions = commissions.filter(
+      (c) => c.product_id !== null,
+    );
+    const generalCommissions = commissions.filter((c) => c.product_id === null);
+
+    // Get the most recent general commission
+    const mostRecentGeneral = getMostRecentCommission(generalCommissions);
+
     for (const item of items) {
-      const specific = commissions.find(
+      // Find specific commissions for this product
+      const itemSpecificCommissions = specificCommissions.filter(
         (c) => c.product_id === item.product_id,
       );
-      const general = commissions.find((c) => c.product_id === null);
+      // Get the most recent specific commission for this product
+      const specific = getMostRecentCommission(itemSpecificCommissions);
+      const general = mostRecentGeneral;
       const c = specific || general;
 
-      if (!c) throw new Error("Commission not configured");
+      console.log("[OrderService][_calculateDistributions] commission lookup", {
+        product_id: item.product_id,
+        specific: !!specific,
+        general: !!general,
+        using: c ? (c.product_id ? "specific" : "general") : "none",
+        commission_id: c?.id,
+      });
 
-      const base = item.main_price * item.quantity;
-      company += base * (c.company_percentage / 100);
-      gs += base * (c.general_supervisor_percentage / 100);
-      supervisor += base * (c.supervisor_percentage / 100);
+      if (!c) {
+        console.log(
+          "[OrderService][_calculateDistributions] missing commission",
+          {
+            product_id: item.product_id,
+          },
+        );
+        throw new Error("Commission not configured");
+      }
+
+      const itemMainPrice = Number(item.main_price || 0);
+      const itemQuantity = Number(item.quantity || 0);
+      const companyPct = Number(c.company_percentage || 0);
+      const gsPct = Number(c.general_supervisor_percentage || 0);
+      const supervisorPct = Number(c.supervisor_percentage || 0);
+
+      // Base is calculated from oldMainTotal only (the original price before markup)
+      // This ensures percentages are applied to the correct base
+      const base = itemMainPrice * itemQuantity;
+      company += base * (companyPct / 100);
+      gs += base * (gsPct / 100);
+      supervisor += base * (supervisorPct / 100);
+
+      console.log("[OrderService][_calculateDistributions] item", {
+        product_id: item.product_id,
+        quantity: itemQuantity,
+        main_price: itemMainPrice,
+        commission_product_id: c.product_id,
+        company_percentage: companyPct,
+        general_supervisor_percentage: gsPct,
+        supervisor_percentage: supervisorPct,
+        base,
+        company,
+        gs,
+        supervisor,
+      });
     }
 
-    const mainTotal = order.total_main_price;
-    const extra = order.total_sold_price - mainTotal - deliveryFee;
-    // Calculate marketer share BEFORE adding delivery fee to company
-    // (delivery fee goes to company but should NOT reduce marketer's share)
-    const marketer = mainTotal - (company + gs + supervisor) + extra;
+    // The extra amount (baseTotal - oldMainTotal) is additional profit for the company
+    // This is the markup added by the marketer on top of the original price
+    const extraProfit = baseTotal - oldMainTotal;
+
+    // Marketer gets the remaining percentage (100% - (company% + gs% + supervisor%))
+    // Calculate from the oldMainTotal, then add extraProfit
+    // We need to get the total percentages from the commission used
+    // Since different items might use different commissions, we use a weighted average
+    let totalCompanyPct = 0;
+    let totalGsPct = 0;
+    let totalSupervisorPct = 0;
+
+    // Recalculate to get the correct percentages
+    for (const item of items) {
+      const itemSpecificCommissions = specificCommissions.filter(
+        (c) => c.product_id === item.product_id,
+      );
+      const specific = getMostRecentCommission(itemSpecificCommissions);
+      const c = specific || mostRecentGeneral;
+
+      if (c) {
+        const itemMainPrice = Number(item.main_price || 0);
+        const itemQuantity = Number(item.quantity || 0);
+        const itemBase = itemMainPrice * itemQuantity;
+        const weight = oldMainTotal > 0 ? itemBase / oldMainTotal : 0;
+
+        totalCompanyPct += Number(c.company_percentage || 0) * weight;
+        totalGsPct += Number(c.general_supervisor_percentage || 0) * weight;
+        totalSupervisorPct += Number(c.supervisor_percentage || 0) * weight;
+      }
+    }
+
+    const marketerPct =
+      100 - (totalCompanyPct + totalGsPct + totalSupervisorPct);
+    // Marketer gets their percentage from oldMainTotal PLUS the extraProfit
+    const marketer = oldMainTotal * (marketerPct / 100) + extraProfit;
+
+    // Company gets their percentage from oldMainTotal + deliveryFee
+    // (extraProfit is already accounted for in the base calculation above)
     company += deliveryFee;
+
+    console.log("[OrderService][_calculateDistributions] pre-distributions", {
+      baseTotal,
+      company,
+      gs,
+      supervisor,
+      marketer,
+    });
 
     // Handle orders without a marketer (self-registered customers)
     let marketerEmployee = order.marketer_id
@@ -357,12 +494,26 @@ class OrderService {
     }
 
     // Hierarchy shifting (for orders WITH a marketer)
+    // Case 1: No GS but has supervisor -> supervisor becomes the new GS
     if (gsEmployee === null) {
+      // GS percentage goes to company (since there's no GS)
       company += gs;
+      // Supervisor becomes the new GS
       gs = supervisor;
       supervisor = 0;
       gsEmployee = supervisorEmployee;
       supervisorEmployee = null;
+
+      console.log(
+        "[OrderService][_calculateDistributions] hierarchy shift: no GS, supervisor promoted to GS",
+        {
+          company,
+          gs,
+          supervisor,
+          gsEmployee: gsEmployee?.id,
+          supervisorEmployee: null,
+        },
+      );
     }
 
     const admin = await adminRepo.getCompanyAccount();
@@ -392,6 +543,11 @@ class OrderService {
         employee_name: marketerEmployee.name || "المسوق",
         amount: marketer,
       });
+
+    console.log("[OrderService][_calculateDistributions] distributions", {
+      distributions,
+      metadata: { company, gs, supervisor, marketer },
+    });
 
     return {
       distributions,
@@ -579,6 +735,14 @@ class OrderService {
 
       if (order.status === "PENDING") {
         try {
+          console.log("[OrderService][getById] preview start", {
+            orderId,
+            total_sold_price: order.total_sold_price,
+            discount_amount: order.discount_amount,
+            total_main_price: order.total_main_price,
+            delivery_point_id: order.delivery_point_id,
+          });
+
           const items = await orderItemRepository.findByOrderId(orderId);
 
           let deliveryFee = 0;
