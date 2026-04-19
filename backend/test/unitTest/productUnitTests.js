@@ -1,8 +1,13 @@
 const { randomUUID } = require('crypto');
 const api = require('../utils/apiUtils');
 const factories = require('../utils/factories');
+const cacheAside = require('../../src/patterns/CacheAside');
 
 describe('Product unit tests', () => {
+  beforeEach(() => {
+    cacheAside.clear();
+  });
+
   async function createCategoryAsAdmin(token, name = 'ProdCat') {
     const res = await api.request(api.app)
       .post('/api/categories')
@@ -101,6 +106,69 @@ describe('Product unit tests', () => {
       expect(Array.isArray(res.body.data.products)).toBe(true);
       expect(res.body.data.pagination).toBeTruthy();
     }
+  });
+
+  test('products list uses cache-aside and invalidates after product mutation', async () => {
+    const adminLogin = await api.loginAdmin();
+    const adminToken = adminLogin.body.data.token;
+
+    const categoryId = await createCategoryAsAdmin(adminToken, `ProdCatCache_${randomUUID().slice(0, 6)}`);
+
+    const created = await api.request(api.app)
+      .post('/api/products')
+      .set(api.authHeader(adminToken))
+      .send({
+        name: 'Cache Product A',
+        description: 'Cache',
+        price: 10,
+        quantity: 50,
+        category_id: categoryId,
+      });
+    expect(created.status).toBe(201);
+    const productId = created.body.data.id;
+
+    const firstList = await api.request(api.app)
+      .get('/api/products?page=1&limit=10')
+      .set(api.authHeader(adminToken));
+    expect(firstList.status).toBe(200);
+    expect(firstList.body.success).toBe(true);
+    expect(firstList.body.data.products.some((p) => p.name === 'Cache Product A')).toBe(true);
+
+    const createdSecond = await api.request(api.app)
+      .post('/api/products')
+      .set(api.authHeader(adminToken))
+      .send({
+        name: 'Cache Product B',
+        description: 'Cache',
+        price: 20,
+        quantity: 25,
+        category_id: categoryId,
+      });
+    expect(createdSecond.status).toBe(201);
+
+    const secondList = await api.request(api.app)
+      .get('/api/products?page=1&limit=10')
+      .set(api.authHeader(adminToken));
+    expect(secondList.status).toBe(200);
+    expect(secondList.body.data.products.some((p) => p.name === 'Cache Product B')).toBe(true);
+
+    const updated = await api.request(api.app)
+      .put(`/api/products/${productId}`)
+      .set(api.authHeader(adminToken))
+      .send({
+        name: 'Cache Product A Updated',
+        description: '',
+        price: '',
+        quantity: '',
+        category_id: '',
+      });
+    expect(updated.status).toBe(200);
+
+    const thirdList = await api.request(api.app)
+      .get('/api/products?page=1&limit=10')
+      .set(api.authHeader(adminToken));
+    expect(thirdList.status).toBe(200);
+    expect(thirdList.body.data.products.some((p) => p.name === 'Cache Product A Updated')).toBe(true);
   });
 
   test('all roles can get a product details; fails if product not found', async () => {

@@ -85,6 +85,14 @@ function parseNotificationsHardDeleteAfterDays() {
   return days;
 }
 
+function parseProductsListCacheTtlSeconds() {
+  const ttl = parseOptionalIntEnv('PRODUCTS_LIST_CACHE_TTL_SECONDS', 600);
+  if (ttl < 1) {
+    throw new Error(`Invalid PRODUCTS_LIST_CACHE_TTL_SECONDS: ${ttl} (expected >= 1)`);
+  }
+  return ttl;
+}
+
 const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
@@ -94,6 +102,7 @@ const config = {
   notificationsCleanupHour: parseNotificationCleanupHour(),
   notificationsMaxCount: parseNotificationMaxCount(),
   notificationsHardDeleteAfterDays: parseNotificationsHardDeleteAfterDays(),
+  productsListCacheTtlSeconds: parseProductsListCacheTtlSeconds(),
   admin1Phone: requiredEnv('ADMIN_1_PHONE'),
   admin1Password: requiredEnv('ADMIN_1_PASSWORD'),
   admin2Phone: requiredEnv('ADMIN_2_PHONE'),

@@ -1,5 +1,8 @@
 const productRepo = require('../data/productRepository');
 const productImageRepo = require('../data/productImageRepository');
+const cacheAside = require('../patterns/CacheAside');
+
+const PRODUCTS_LIST_CACHE_PREFIX = 'products:list:';
 
 class ProductService {
 
@@ -9,7 +12,7 @@ class ProductService {
     if (!data.price) throw new Error('price required');
     if (!data.category_id) throw new Error('category required');
 
-    return await productRepo.createProductWithImage(
+    const created = await productRepo.createProductWithImage(
       {
         name: data.name,
         description: data.description,
@@ -18,6 +21,8 @@ class ProductService {
         category_id: data.category_id
       },
     );
+    cacheAside.invalidateByPrefix(PRODUCTS_LIST_CACHE_PREFIX);
+    return created;
   }
 
   async listProducts({ page = 1, limit = 20 } = {}) {
@@ -82,7 +87,9 @@ class ProductService {
     }
     console.log(validatedData)
 
-    return await productRepo.updateProduct(id, validatedData);
+    const updated = await productRepo.updateProduct(id, validatedData);
+    cacheAside.invalidateByPrefix(PRODUCTS_LIST_CACHE_PREFIX);
+    return updated;
   }
 
   async deleteProduct(id) {
@@ -94,6 +101,7 @@ class ProductService {
     }
 
     await productRepo.softDelete(id);
+    cacheAside.invalidateByPrefix(PRODUCTS_LIST_CACHE_PREFIX);
 
     return { message: "product deleted" };
   }

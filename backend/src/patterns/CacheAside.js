@@ -3,6 +3,30 @@ class CacheAside {
     this.cache = new Map();
   }
 
+  _isFresh(cachedItem) {
+    return cachedItem && cachedItem.expiry > Date.now();
+  }
+
+  getCached(key) {
+    const cachedItem = this.cache.get(key);
+
+    if (this._isFresh(cachedItem)) {
+      return cachedItem.data;
+    }
+
+    if (cachedItem) {
+      this.cache.delete(key);
+    }
+
+    return null;
+  }
+
+  set(key, data, ttlSeconds) {
+    const expiry = Date.now() + (ttlSeconds * 1000);
+    this.cache.set(key, { data, expiry });
+    return data;
+  }
+
   /**
    * Get data from cache or fetch it using the provider function
    * @param {string} key - Unique key for the cache item
@@ -11,22 +35,13 @@ class CacheAside {
    * @returns {Promise<any>} The data
    */
   async get(key, ttlSeconds, fetchFunction) {
-    const cachedItem = this.cache.get(key);
-    const now = Date.now();
-
-    if (cachedItem) {
-      if (cachedItem.expiry > now) {
-        return cachedItem.data;
-      } else {
-        this.cache.delete(key);
-      }
+    const cachedData = this.getCached(key);
+    if (cachedData !== null) {
+      return cachedData;
     }
 
     const data = await fetchFunction();
-    const expiry = now + (ttlSeconds * 1000);
-    this.cache.set(key, { data, expiry });
-
-    return data;
+    return this.set(key, data, ttlSeconds);
   }
 
   /**
@@ -35,6 +50,14 @@ class CacheAside {
    */
   invalidate(key) {
     this.cache.delete(key);
+  }
+
+  invalidateByPrefix(prefix) {
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) {
+        this.cache.delete(key);
+      }
+    }
   }
 
   /**

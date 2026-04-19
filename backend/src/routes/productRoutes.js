@@ -1,6 +1,8 @@
 const express = require('express');
 const authMiddleware = require('../middleware/auth');
 const roleMiddleware = require('../middleware/roleMiddleware');
+const config = require('../config');
+const { createCacheAsideMiddleware } = require('../patterns/cacheAsideMiddleware');
 const router = express.Router();
 
 const productController = require('../controllers/productController');
@@ -13,6 +15,10 @@ router.post('/products',
 router.get('/products',
     authMiddleware,
     roleMiddleware(["ADMIN", "MARKETER", "SUPERVISOR", "GENERAL_SUPERVISOR", "BRANCH_MANAGER", "CUSTOMER"]),
+     createCacheAsideMiddleware({
+       namespace: 'products:list',
+       ttlSeconds: config.productsListCacheTtlSeconds,
+     }),
      productController.listProducts);
 
 router.get('/products/:id',
