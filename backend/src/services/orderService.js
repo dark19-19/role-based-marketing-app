@@ -25,8 +25,7 @@ class OrderService {
       sold_price,
       notes,
       coupon_code,
-    } =
-      payload;
+    } = payload;
 
     // 1️⃣ get customer
     // For CUSTOMER role, find by user_id (since frontend sends user.id, not customer.id)
@@ -48,7 +47,7 @@ class OrderService {
     let marketerId = null;
 
     if (user.role === "CUSTOMER") {
-      marketerId = customer.referred_by || null;
+      marketerId = customer.referred_by || customer.first_marketer_id || null;
     } else {
       const employee = await employeeRepository.findByUserId(user.id);
 
@@ -98,7 +97,10 @@ class OrderService {
     }
 
     if (user.role === "CUSTOMER" && coupon_code) {
-      const availability = await couponService.checkAvailability(coupon_code, user);
+      const availability = await couponService.checkAvailability(
+        coupon_code,
+        user,
+      );
       if (!availability.available && availability.reason === "already_used") {
         throw new Error("Coupon already used by this customer");
       }
@@ -122,10 +124,13 @@ class OrderService {
         throw new Error(`Invalid product ${item.product_id}`);
       }
 
-      await productRepository.decreaseQuantity({
-        product_id: product.id,
-        quantity: item.quantity,
-      }, client);
+      await productRepository.decreaseQuantity(
+        {
+          product_id: product.id,
+          quantity: item.quantity,
+        },
+        client,
+      );
 
       totalPrice += product.price * item.quantity;
     }
@@ -161,7 +166,9 @@ class OrderService {
       discountAmount = Number(
         (finalSoldPrice * (discountPercentage / 100)).toFixed(2),
       );
-      finalSoldPrice = Number(Math.max(0, finalSoldPrice - discountAmount).toFixed(2));
+      finalSoldPrice = Number(
+        Math.max(0, finalSoldPrice - discountAmount).toFixed(2),
+      );
     }
 
     const orderId = await orderRepository.create(
@@ -413,10 +420,13 @@ class OrderService {
 
     // Restore product quantities
     for (const item of items) {
-      await productRepository.increaseQuantity({
-        product_id: item.product_id,
-        quantity: item.quantity,
-      }, client);
+      await productRepository.increaseQuantity(
+        {
+          product_id: item.product_id,
+          quantity: item.quantity,
+        },
+        client,
+      );
     }
 
     await orderRepository.updateStatus(orderId, "REJECTED", client);
@@ -573,7 +583,9 @@ class OrderService {
 
           let deliveryFee = 0;
           if (order.delivery_point_id) {
-            const dp = await deliveryPointRepo.findById(order.delivery_point_id);
+            const dp = await deliveryPointRepo.findById(
+              order.delivery_point_id,
+            );
             if (dp) {
               const fee = Number(dp.fee);
               deliveryFee = Number.isNaN(fee) ? 0 : fee;
