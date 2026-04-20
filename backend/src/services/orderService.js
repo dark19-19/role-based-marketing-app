@@ -325,6 +325,7 @@ class OrderService {
     let company = 0;
     let gs = 0;
     let supervisor = 0;
+    const actualPercentage = (100 - Number(couponPercentage || 0)) / 100;
 
     const totalSoldPrice = Number(order.total_sold_price || 0);
     const discountAmount = Number(order.discount_amount || 0);
@@ -348,7 +349,6 @@ class OrderService {
     const originalSoldPrice = totalSoldPrice + discountAmount;
     const baseTotal = originalSoldPrice - deliveryFee;
     const oldMainTotal = totalMainPrice;
-    const actualPercentage = (100 - Number(couponPercentage || 0)) / 100;
 
     console.log("[OrderService][_calculateDistributions] base values", {
       originalSoldPrice,
@@ -375,7 +375,7 @@ class OrderService {
 
     // Get the most recent general commission
     const mostRecentGeneral = getMostRecentCommission(generalCommissions);
-
+    let Totalbase = 0;
     for (const item of items) {
       // Find specific commissions for this product
       const itemSpecificCommissions = specificCommissions.filter(
@@ -412,7 +412,7 @@ class OrderService {
 
       // Apply coupon discount ratio on the commissionable base before splitting percentages.
       const base = itemMainPrice * itemQuantity * actualPercentage;
-      
+      Totalbase += base;
       company += base * (companyPct / 100);
       gs += base * (gsPct / 100);
       supervisor += base * (supervisorPct / 100);
@@ -467,7 +467,7 @@ class OrderService {
     const marketerPct =
       100 - (totalCompanyPct + totalGsPct + totalSupervisorPct);
     // Marketer gets their percentage from oldMainTotal PLUS the extraProfit
-    const marketer = oldMainTotal * (marketerPct / 100) + extraProfit;
+    const marketer = Totalbase * (marketerPct / 100) + extraProfit;
 
     // Company gets their percentage from oldMainTotal + deliveryFee
     // (extraProfit is already accounted for in the base calculation above)
