@@ -243,10 +243,21 @@ class OrderService {
         deliveryFee = Number.isNaN(fee) ? 0 : fee;
       }
     }
+
+    let couponPercentage = 0;
+    const couponUsage = await couponRepo.findUsageByOrderId(orderId);
+    if (couponUsage?.coupon_id) {
+      const coupon = await couponRepo.findById(couponUsage.coupon_id);
+      if (coupon) {
+        couponPercentage = Number(coupon.discount_percentage || 0);
+      }
+    }
+
     const { distributions, metadata } = await this._calculateDistributions(
       order,
       items,
       deliveryFee,
+      couponPercentage,
     );
 
     // table: order_commissions
@@ -298,7 +309,12 @@ class OrderService {
     }
   }
 
-  async _calculateDistributions(order, items, deliveryFee = 0) {
+  async _calculateDistributions(
+    order,
+    items,
+    deliveryFee = 0,
+    couponPercentage = 0,
+  ) {
     const commissions = await commissionRepo.getAll();
 
     console.log(
@@ -321,6 +337,8 @@ class OrderService {
       discount_amount: order.discount_amount,
       discountAmount,
       deliveryFee,
+      couponPercentage,
+      actualPercentage,
       total_main_price: order.total_main_price,
       totalMainPrice,
       itemCount: items.length,
@@ -330,6 +348,7 @@ class OrderService {
     const originalSoldPrice = totalSoldPrice + discountAmount;
     const baseTotal = originalSoldPrice - deliveryFee;
     const oldMainTotal = totalMainPrice;
+    const actualPercentage = (100 - Number(couponPercentage || 0)) / 100;
 
     console.log("[OrderService][_calculateDistributions] base values", {
       originalSoldPrice,
@@ -391,9 +410,9 @@ class OrderService {
       const gsPct = Number(c.general_supervisor_percentage || 0);
       const supervisorPct = Number(c.supervisor_percentage || 0);
 
-      // Base is calculated from oldMainTotal only (the original price before markup)
-      // This ensures percentages are applied to the correct base
-      const base = itemMainPrice * itemQuantity;
+      // Apply coupon discount ratio on the commissionable base before splitting percentages.
+      const base = itemMainPrice * itemQuantity * actualPercentage;
+      
       company += base * (companyPct / 100);
       gs += base * (gsPct / 100);
       supervisor += base * (supervisorPct / 100);
@@ -756,10 +775,20 @@ class OrderService {
             }
           }
 
+          let couponPercentage = 0;
+          const couponUsage = await couponRepo.findUsageByOrderId(orderId);
+          if (couponUsage?.coupon_id) {
+            const coupon = await couponRepo.findById(couponUsage.coupon_id);
+            if (coupon) {
+              couponPercentage = Number(coupon.discount_percentage || 0);
+            }
+          }
+
           const { distributions } = await this._calculateDistributions(
             order,
             items,
             deliveryFee,
+            couponPercentage,
           );
           order.preview_transactions = distributions;
         } catch (e) {

@@ -160,6 +160,19 @@ class CouponRepository {
     );
   }
 
+  async findUsageByOrderId(orderId) {
+    const { rows } = await db.query(
+      `
+        SELECT coupon_id, order_id
+        FROM coupon_usages
+        WHERE order_id = $1
+        LIMIT 1
+      `,
+      [orderId],
+    );
+    return rows[0] || null;
+  }
+
   async incrementUsedCount(client, couponId) {
     const { rows } = await client.query(
       `
