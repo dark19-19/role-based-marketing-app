@@ -756,6 +756,7 @@ class OrderService {
         try {
           console.log("[OrderService][getById] preview start", {
             orderId,
+            orderNotes : order.notes,
             total_sold_price: order.total_sold_price,
             discount_amount: order.discount_amount,
             total_main_price: order.total_main_price,

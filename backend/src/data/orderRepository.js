@@ -437,7 +437,7 @@ class OrderRepository {
                 o.created_at,
                 o.total_main_price AS total_price,
                 o.total_sold_price AS sold_price,
-
+                o.notes AS notes,
                 (cu.first_name || ' ' || cu.last_name) AS customer_name,
                 cu.phone AS customer_phone,
 
