@@ -1,5 +1,6 @@
 const productImageRepo = require('../data/productImageRepository');
 const productRepo = require('../data/productRepository');
+const cacheAside = require('../patterns/CacheAside');
 
 class ProductImageService {
 
@@ -15,11 +16,16 @@ class ProductImageService {
 
         const maxOrder = await productImageRepo.getMaxSortOrder(productId);
 
-        return await productImageRepo.addImage(
+        const result = await productImageRepo.addImage(
             productId,
             imageUrl,
             maxOrder + 1
         );
+
+        // Invalidate cache for products list
+        cacheAside.invalidateByPrefix('products:list:');
+
+        return result;
 
     }
 
@@ -42,6 +48,9 @@ class ProductImageService {
             throw new Error('image not found');
         }
 
+        // Invalidate cache for products list
+        cacheAside.invalidateByPrefix('products:list:');
+
         return {message: "image deleted"};
 
     }
@@ -57,6 +66,9 @@ class ProductImageService {
             throw new Error('image not found');
         }
 
+        // Invalidate cache for products list
+        cacheAside.invalidateByPrefix('products:list:');
+
         return updated;
 
     }
@@ -69,6 +81,10 @@ class ProductImageService {
         if (updated !== orderedIds.length) {
             throw new Error('image not found');
         }
+
+        // Invalidate cache for products list
+        cacheAside.invalidateByPrefix('products:list:');
+
         return updated;
     }
 
