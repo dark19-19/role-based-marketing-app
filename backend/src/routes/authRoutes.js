@@ -17,5 +17,6 @@ router.post("/auth/logout", authMiddleware, authController.logout);
 
 router.patch("/auth/profile", authMiddleware, authController.updateProfile);
 router.patch("/auth/password", authMiddleware, authController.changePassword);
+router.post("/auth/refresh", authMiddleware, authController.refresh);
 
 module.exports = router;

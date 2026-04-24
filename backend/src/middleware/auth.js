@@ -13,7 +13,7 @@ async function authMiddleware(req, res, next) {
   const payload = verify(token);
   if (!payload) return res.status(401).json({ error: 'Invalid or expired token' });
   const rec = await userRepo.getTokenByValue(token);
-  if (rec && rec.revoked) return res.status(401).json({ error: 'Token revoked' });
+  if (rec && rec.revoked) return res.status(401).json({ error: 'Session expired' });
 
   req.user = { id: payload.sub, phone: payload.phone, role: payload.role, token };
 

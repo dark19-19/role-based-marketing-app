@@ -40,6 +40,9 @@ class AuthService {
 
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000 * 3 * 24);
 
+      // Revoke all previous tokens for this user to enforce single session
+      await userRepo.revokeAllTokensForUser(user.id);
+
       await userRepo.insertJwtToken({
         id: randomUUID(),
         user_id: user.id,
@@ -65,7 +68,7 @@ class AuthService {
     }
   }
 
-  async registerCustomer({ first_name, last_name, phone, password, question=null, answer=null }) {
+  async registerCustomer({ first_name, last_name, phone, password, question = null, answer = null }) {
     try {
       first_name = isString(first_name, "يرجى إدخال اسم أول صحيح");
       last_name = isString(last_name, "يرجى إدخال اسم ثاني صحيح");
@@ -87,7 +90,7 @@ class AuthService {
       }
 
       const hash = await bcrypt.hash(password, 10);
-     // const answerHash = await bcrypt.hash(answer, 10);
+      // const answerHash = await bcrypt.hash(answer, 10);
       const id = randomUUID();
 
       await authRepo.createCustomerUser({
@@ -120,6 +123,9 @@ class AuthService {
       });
 
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000 * 3 * 24);
+
+      // Revoke all previous tokens (just in case)
+      await userRepo.revokeAllTokensForUser(id);
 
       await userRepo.insertJwtToken({
         id: randomUUID(),
@@ -283,6 +289,34 @@ class AuthService {
       await userRepo.revokeAllTokensForUser(userId);
 
       return { message: "تم تغيير كلمة المرور بنجاح" };
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async refreshToken({ userId, phone, role }) {
+    try {
+      const token = buildAccessToken({
+        id: userId,
+        phone,
+        role,
+      });
+
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000 * 3 * 24);
+
+      // Keep the current session alive but provide a new rotated token if needed
+      // Or we can revoke previous ones to ensure even the refresh rotates strictly
+      await userRepo.revokeAllTokensForUser(userId);
+
+      await userRepo.insertJwtToken({
+        id: randomUUID(),
+        user_id: userId,
+        token,
+        expiresAt,
+        revoked: false,
+      });
+
+      return { token };
     } catch (err) {
       throw err;
     }

@@ -8,7 +8,7 @@ class AuthController {
         last_name,
         phone,
         password,
-      //  question,
+        //  question,
         // answer
       } =
         req.body || {};
@@ -127,7 +127,7 @@ class AuthController {
 
   forgotPasswordAnswer = async (req, res) => {
     try {
-      const { question, answer , phone } = req.body || {};
+      const { question, answer, phone } = req.body || {};
       const result = await authService.answerForgotPasswordQuestion({
         phone,
         question,
@@ -146,6 +146,18 @@ class AuthController {
         reset_key,
         new_password,
         confirmed_password,
+      });
+      res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  };
+  refresh = async (req, res) => {
+    try {
+      const result = await authService.refreshToken({
+        userId: req.user.id,
+        phone: req.user.phone,
+        role: req.user.role,
       });
       res.status(200).json({ success: true, data: result });
     } catch (err) {
