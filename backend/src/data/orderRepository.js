@@ -589,6 +589,30 @@ class OrderRepository {
     );
   }
 
+  async getOrdersByMarketerId(marketerId) {
+    const { rows } = await db.query(
+      `
+      SELECT id, status
+      FROM orders
+      WHERE marketer_id = $1
+      AND status IN ('PENDING', 'APPROVED')
+    `,
+      [marketerId]
+    );
+    return rows;
+  }
+
+  async updateBulkStatus(orderIds, status, client) {
+    await client.query(
+      `
+      UPDATE orders
+      SET status = $1
+      WHERE id = ANY($2)
+    `,
+      [status, orderIds]
+    );
+  }
+
   /**
    * Check if a marketer directly reports to a given supervisor
    */
