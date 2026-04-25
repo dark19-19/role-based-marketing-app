@@ -38,8 +38,7 @@ class AuthService {
         role: user.role,
       });
 
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000 * 3 * 24);
-
+       const expiresAt = new Date(Date.now() + 30 * 60 * 1000 );
       // Revoke all previous tokens for this user to enforce single session
       await userRepo.revokeAllTokensForUser(user.id);
 
