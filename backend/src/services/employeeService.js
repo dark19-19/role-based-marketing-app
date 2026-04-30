@@ -4,10 +4,13 @@ const salaryRequestRepo = require("../data/salaryRequestRepository");
 const customerRepo = require("../data/customerRepository");
 const userRepo = require("../data/userRepository");
 const roleRepo = require("../data/roleRepository");
-const adminRepo = require("../data/adminRepository");
+const orderRepo = require("../data/orderRepository");
+const branchRepo = require("../data/branchRepository");
+const walletRepo = require("../data/walletRepository");
 const db = require("../helpers/DBHelper");
 const bcrypt = require("bcrypt");
 const notificationHelper = require("../helpers/notificationHelper");
+const {WITHDREW} = require("../utils/walletTransactionTypes");
 
 class EmployeeService {
   async createEmployee({ userId, role, branchId, supervisorId }) {
@@ -356,9 +359,77 @@ class EmployeeService {
     }
   }
 
-  async removeEmployee(employeeId) {
+  // async removeEmployee(employeeId) {
+  //   return await db.runInTransaction(async (client) => {
+  //     // 1️⃣ Get employee details
+  //     const employee = await employeeRepo.findById(employeeId);
+  //     if (!employee) {
+  //       throw new Error("Employee not found");
+  //     }
+  //
+  //     // 2️⃣ Check if employee is already inactive
+  //     if (!employee.is_active) {
+  //       throw new Error("Employee is already removed");
+  //     }
+  //
+  //     // 3️⃣ Get the branch and governorate for the new customer
+  //     const branchInfo = await employeeRepo.getEmployeeBranch(employeeId);
+  //     if (!branchInfo) {
+  //       throw new Error("Employee branch not found");
+  //     }
+  //
+  //     // 4️⃣ Update employee is_active to false
+  //     await employeeRepo.updateIsActive(employeeId, false, client);
+  //
+  //     // 5️⃣ Update user's role to CUSTOMER
+  //     const customerRole = await roleRepo.findByName("CUSTOMER");
+  //     if (!customerRole) {
+  //       throw new Error("Customer role not found");
+  //     }
+  //
+  //     await userRepo.updateRole(employee.user_id, customerRole.id, client);
+  //
+  //     // 6️⃣ Check if user was a customer before (has an existing customer record)
+  //     const existingCustomer = await customerRepo.findByUserId(employee.user_id);
+  //
+  //     if (existingCustomer) {
+  //       // If user was a customer before, just update is_active to true
+  //       await customerRepo.updateIsActive(existingCustomer.id, true, client);
+  //     } else {
+  //       // If user was never a customer, create a new customer record
+  //       await customerRepo.createWithClient(client, {
+  //         user_id: employee.user_id,
+  //         referred_by: null,
+  //         first_marketer_id: null,
+  //         governorate_id: branchInfo.governorate_id,
+  //         is_active: true
+  //       });
+  //     }
+  //
+  //     // 7️⃣ Update wallet transactions from BALANCE to WITHDREW
+  //     await employeeRepo.updateWalletTransactionsToWithdrew(employeeId, client);
+  //
+  //     // 8️⃣ Notify the user
+  //     try {
+  //       await notificationHelper.notify(
+  //         employee.user_id,
+  //         "تم تحويل حسابك إلى عميل",
+  //         "تم تحويل حسابك من موظف إلى عميل بنجاح."
+  //       );
+  //     } catch (notifyErr) {
+  //       console.error("[EmployeeService] Notification error (ignored):", notifyErr.message);
+  //     }
+  //
+  //     return {
+  //       success: true,
+  //       message: "Employee removed and converted to customer successfully"
+  //     };
+  //   });
+  // }
+
+  async removeEmployee(employeeId, successorId = null) {
     return await db.runInTransaction(async (client) => {
-      // 1️⃣ Get employee details
+      // 1️⃣ Get employee details with role
       const employee = await employeeRepo.findById(employeeId);
       if (!employee) {
         throw new Error("Employee not found");
@@ -369,16 +440,31 @@ class EmployeeService {
         throw new Error("Employee is already removed");
       }
 
-      // 3️⃣ Get the branch and governorate for the new customer
-      const branchInfo = await employeeRepo.getEmployeeBranch(employeeId);
-      if (!branchInfo) {
-        throw new Error("Employee branch not found");
+      // 3️⃣ Get employee with role
+      const employeeWithRole = await employeeRepo.getEmployeeWithRole(employeeId);
+      if (!employeeWithRole) {
+        throw new Error("Employee role not found");
       }
 
-      // 4️⃣ Update employee is_active to false
+      const role = employeeWithRole.role;
+
+      // 4️⃣ Perform role-specific deactivation
+      if (role === "MARKETER") {
+        await this._deactivateMarketer(employeeId, employee, client);
+      } else if (role === "SUPERVISOR") {
+        await this._deactivateSupervisor(employeeId, employee, client);
+      } else if (role === "GENERAL_SUPERVISOR") {
+        await this._deactivateGeneralSupervisor(employeeId, employee, successorId, client);
+      } else if (role === "BRANCH_MANAGER") {
+        await this._deactivateBranchManager(employeeId, employee, client);
+      } else {
+        throw new Error("This role cannot be deactivated using this method");
+      }
+
+      // 5️⃣ Update employee is_active to false
       await employeeRepo.updateIsActive(employeeId, false, client);
 
-      // 5️⃣ Update user's role to CUSTOMER
+      // 6️⃣ Update user's role to CUSTOMER
       const customerRole = await roleRepo.findByName("CUSTOMER");
       if (!customerRole) {
         throw new Error("Customer role not found");
@@ -386,7 +472,13 @@ class EmployeeService {
 
       await userRepo.updateRole(employee.user_id, customerRole.id, client);
 
-      // 6️⃣ Check if user was a customer before (has an existing customer record)
+      // 7️⃣ Get the branch and governorate for the new customer
+      const branchInfo = await employeeRepo.getEmployeeBranch(employeeId);
+      if (!branchInfo) {
+        throw new Error("Employee branch not found");
+      }
+
+      // 8️⃣ Check if user was a customer before (has an existing customer record)
       const existingCustomer = await customerRepo.findByUserId(employee.user_id);
 
       if (existingCustomer) {
@@ -403,15 +495,12 @@ class EmployeeService {
         });
       }
 
-      // 7️⃣ Update wallet transactions from BALANCE to WITHDREW
-      await employeeRepo.updateWalletTransactionsToWithdrew(employeeId, client);
-
-      // 8️⃣ Notify the user
+      // 9️⃣ Notify the user
       try {
         await notificationHelper.notify(
-          employee.user_id,
-          "تم تحويل حسابك إلى عميل",
-          "تم تحويل حسابك من موظف إلى عميل بنجاح."
+            employee.user_id,
+            "تم تحويل حسابك إلى عميل",
+            "تم تحويل حسابك من موظف إلى عميل بنجاح."
         );
       } catch (notifyErr) {
         console.error("[EmployeeService] Notification error (ignored):", notifyErr.message);
@@ -422,6 +511,140 @@ class EmployeeService {
         message: "Employee removed and converted to customer successfully"
       };
     });
+  }
+
+
+  /**
+   * Deactivate a marketer
+   * - Cancel all pending and approved orders
+   * - Notify branch manager
+   * - Withdraw all wallet transactions (BALANCE and REQUESTED)
+   * - Approve all pending salary requests
+   * - Clear customer references
+   */
+  async _deactivateMarketer(employeeId, employee, client) {
+    // 1️⃣ Cancel all pending and approved orders
+    const orders = await orderRepo.getOrdersByMarketerId(employeeId);
+    const orderIds = orders.map(o => o.id);
+
+    if (orderIds.length > 0) {
+      await orderRepo.updateBulkStatus(orderIds, "CANCELLED", client);
+
+      // Notify branch manager
+      const branchManagerUserId = await branchRepo.getBranchManager(employee.branch_id);
+      if (branchManagerUserId) {
+        try {
+          await notificationHelper.notify(
+              branchManagerUserId,
+              "إلغاء طلبات موظف تم إيقافه",
+              `تم إلغاء ${orderIds.length} طلب للمسوق ${employee.first_name || 'الموظف'} بعد إيقافه.`
+          );
+        } catch (err) {
+          console.error("Failed to notify branch manager:", err.message);
+        }
+      }
+    }
+
+    // 2️⃣ Withdraw all wallet transactions (BALANCE and REQUESTED)
+    const transactions = await walletRepo.getBalanceAndRequestedTransactions(employeeId);
+    const transactionIds = transactions.map(t => t.id);
+    const totalWithdrawn = transactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+    if (transactionIds.length > 0) {
+      await walletRepo.bulkUpdateType(transactionIds, WITHDREW, client);
+    }
+
+    // 3️⃣ Approve all pending salary requests
+    const pendingSalaryRequests = await salaryRequestRepo.getPendingByEmployeeId(employeeId);
+    const salaryRequestIds = pendingSalaryRequests.map(sr => sr.id);
+
+    if (salaryRequestIds.length > 0) {
+      await salaryRequestRepo.bulkUpdateStatus(salaryRequestIds, "APPROVED", client);
+    }
+
+    // 4️⃣ Clear customer references
+    await customerRepo.clearMarketerReferences(employeeId, client);
+
+    return {
+      ordersCancelled: orderIds.length,
+      transactionsWithdrawn: transactionIds.length,
+      totalWithdrawn,
+      salaryRequestsApproved: salaryRequestIds.length
+    };
+  }
+
+  /**
+   * Deactivate a supervisor
+   * - Perform all marketer deactivation steps for the supervisor themselves
+   * - Reassign all marketers under this supervisor to the general supervisor
+   */
+  async _deactivateSupervisor(employeeId, employee, client) {
+    // 1️⃣ Perform marketer deactivation steps for the supervisor
+    const result = await this._deactivateMarketer(employeeId, employee, client);
+
+    // 2️⃣ Reassign marketers to general supervisor
+    const subordinates = await employeeRepo.getSubordinates(employeeId);
+    const marketerSubordinates = subordinates.filter(sub => sub.role === "MARKETER");
+
+    if (marketerSubordinates.length > 0) {
+      // Get the general supervisor for this supervisor
+      const gs = await employeeRepo.getGeneralSupervisorForSupervisor(employeeId);
+      if (!gs) {
+        throw new Error("Cannot deactivate supervisor: no general supervisor found for reassignment");
+      }
+
+      const marketerIds = marketerSubordinates.map(m => m.id);
+      await employeeRepo.updateSupervisorBulk(marketerIds, gs.id, client);
+    }
+
+    return result;
+  }
+
+  /**
+   * Deactivate a branch manager
+   * - Perform all marketer deactivation steps for the branch manager
+   */
+  async _deactivateBranchManager(employeeId, employee, client) {
+    // For now, branch managers are treated like marketers in terms of cleanup
+    return await this._deactivateMarketer(employeeId, employee, client);
+  }
+
+  /**
+   * Deactivate a general supervisor
+   * - Perform all marketer deactivation steps for the general supervisor
+   * - Reassign all subordinates (supervisors and marketers) to the successor
+   */
+  async _deactivateGeneralSupervisor(employeeId, employee, successorId, client) {
+    if (!successorId) {
+      throw new Error("Successor ID is required when deactivating a general supervisor");
+    }
+
+
+    // Verify successor exists and is a GENERAL_SUPERVISOR
+    const successor = await employeeRepo.findEmployeeWithRole(successorId);
+    if (!successor) {
+      throw new Error("Successor not found");
+    }
+    if (successor.role !== "GENERAL_SUPERVISOR") {
+      throw new Error("Successor must be a general supervisor");
+    }
+
+    // 1️⃣ Perform marketer deactivation steps for the general supervisor
+    const result = await this._deactivateMarketer(employeeId, employee, client);
+
+    // 2️⃣ Reassign all subordinates to the successor
+    const allSubordinates = await employeeRepo.getAllEmployeesUnderGeneralSupervisor(employeeId);
+
+    if (allSubordinates.length > 0) {
+      const subordinateIds = allSubordinates.map(s => s.id);
+      await employeeRepo.updateSupervisorBulk(subordinateIds, successorId, client);
+    }
+
+    return {
+      ...result,
+      subordinatesReassigned: allSubordinates.length,
+      successorId
+    };
   }
 
   async applyEmployee(userId, role, branchId, supervisorId) {

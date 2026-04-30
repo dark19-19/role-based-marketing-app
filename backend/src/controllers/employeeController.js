@@ -164,22 +164,22 @@ class EmployeeController {
     }
   }
 
-  async remove(req, res) {
-    try {
-      const result = await employeeService.removeEmployee(req.params.id);
-
-      res.json({
-        success: true,
-        body: result,
-        message: "تم تحويل الموظف إلى عميل بنجاح"
-      });
-    } catch (err) {
-      res.status(400).json({
-        success: false,
-        message: err.message,
-      });
-    }
-  }
+  // async remove(req, res) {
+  //   try {
+  //     const result = await employeeService.removeEmployee(req.params.id);
+  //
+  //     res.json({
+  //       success: true,
+  //       body: result,
+  //       message: "تم تحويل الموظف إلى عميل بنجاح"
+  //     });
+  //   } catch (err) {
+  //     res.status(400).json({
+  //       success: false,
+  //       message: err.message,
+  //     });
+  //   }
+  // }
 
   async apply(req, res) {
     try {
@@ -243,6 +243,24 @@ class EmployeeController {
       });
     }
   }
+  async remove(req, res) {
+    try {
+      const { successorId } = req.body;
+      const result = await employeeService.removeEmployee(req.params.id, successorId);
+
+      res.json({
+        success: true,
+        body: result,
+        message: "تم تحويل الموظف إلى عميل بنجاح"
+      });
+    } catch (err) {
+      res.status(400).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  }
+
 }
 
 module.exports = new EmployeeController();

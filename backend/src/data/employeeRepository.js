@@ -496,6 +496,144 @@ ORDER BY name
     );
   }
 
+  async getBranchManagerUserId(branchId) {
+    const { rows } = await db.query(
+        `
+      SELECT u.id as user_id
+      FROM employees e
+      INNER JOIN users u ON e.user_id = u.id
+      INNER JOIN roles r ON r.id = u.role_id
+      WHERE e.branch_id = $1
+      AND r.name = 'BRANCH_MANAGER'
+      AND e.is_active = true
+      LIMIT 1
+    `,
+        [branchId]
+    );
+    return rows[0]?.user_id || null;
+  }
+
+  async getSubordinates(employeeId) {
+    const { rows } = await db.query(
+        `
+      SELECT id, user_id, branch_id, supervisor_id
+      FROM employees
+      WHERE supervisor_id = $1
+      AND is_active = true
+    `,
+        [employeeId]
+    );
+    return rows;
+  }
+
+  async getEmployeeWithRole(employeeId) {
+    const { rows } = await db.query(
+        `
+      SELECT e.id, e.user_id, e.branch_id, e.supervisor_id, r.name as role
+      FROM employees e
+      JOIN users u ON u.id = e.user_id
+      JOIN roles r ON r.id = u.role_id
+      WHERE e.id = $1
+    `,
+        [employeeId]
+    );
+    return rows[0] || null;
+  }
+
+  async getGeneralSupervisorForSupervisor(supervisorId) {
+    const { rows } = await db.query(
+        `
+      SELECT gs_e.id, gs_u.first_name || ' ' || gs_u.last_name as name
+      FROM employees sup_e
+      LEFT JOIN employees gs_e ON gs_e.id = sup_e.supervisor_id
+      LEFT JOIN users gs_u ON gs_u.id = gs_e.user_id
+      WHERE sup_e.id = $1
+    `,
+        [supervisorId]
+    );
+    return rows[0] || null;
+  }
+
+  async getAllSubordinates(employeeId) {
+    // Recursive CTE to get all subordinates (direct and indirect) with role info
+    const { rows } = await db.query(
+        `
+      WITH RECURSIVE subordinates AS (
+        -- Anchor: direct subordinates
+        SELECT e.id, e.user_id, e.supervisor_id, e.branch_id, r.name as role
+        FROM employees e
+        JOIN users u ON u.id = e.user_id
+        JOIN roles r ON r.id = u.role_id
+        WHERE e.supervisor_id = $1
+          AND e.is_active = true
+        UNION
+        -- Recursive: get subordinates of subordinates
+        SELECT e.id, e.user_id, e.supervisor_id, e.branch_id, r.name as role
+        FROM employees e
+        JOIN users u ON u.id = e.user_id
+        JOIN roles r ON r.id = u.role_id
+        INNER JOIN subordinates s ON e.supervisor_id = s.id
+        WHERE e.is_active = true
+      )
+      SELECT * FROM subordinates
+      `,
+        [employeeId]
+    );
+    return rows;
+  }
+
+  async updateSupervisorBulk(employeeIds, newSupervisorId, client) {
+    await client.query(
+        `
+      UPDATE employees
+      SET supervisor_id = $1
+      WHERE id = ANY($2)
+      `,
+        [newSupervisorId, employeeIds]
+    );
+  }
+
+  async getAllEmployeesUnderGeneralSupervisor(gsId) {
+    // Get all supervisors and marketers under a general supervisor (direct and indirect)
+    const { rows } = await db.query(
+        `
+      WITH RECURSIVE subordinates AS (
+        -- Anchor: direct subordinates (supervisors)
+        SELECT e.id, e.user_id, e.supervisor_id, e.branch_id, r.name as role
+        FROM employees e
+        JOIN users u ON u.id = e.user_id
+        JOIN roles r ON r.id = u.role_id
+        WHERE e.supervisor_id = $1
+          AND e.is_active = true
+        UNION
+        -- Recursive: get all subordinates (including marketers under supervisors)
+        SELECT e.id, e.user_id, e.supervisor_id, e.branch_id, r.name as role
+        FROM employees e
+        JOIN users u ON u.id = e.user_id
+        JOIN roles r ON r.id = u.role_id
+        INNER JOIN subordinates s ON e.supervisor_id = s.id
+        WHERE e.is_active = true
+      )
+      SELECT * FROM subordinates
+      `,
+        [gsId]
+    );
+    return rows;
+  }
+
+  async reassignAllSubordinates(oldSupervisorId, newSupervisorId, client) {
+    await client.query(
+        `
+      UPDATE employees
+      SET supervisor_id = $1
+      WHERE supervisor_id = $2
+        AND is_active = true
+      `,
+        [newSupervisorId, oldSupervisorId]
+    );
+  }
+
+
 }
 
 module.exports = new EmployeeRepository();

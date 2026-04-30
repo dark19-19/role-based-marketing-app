@@ -277,6 +277,31 @@ class CustomerRepository {
         );
     }
 
+    async clearMarketerReferences(employeeId, client) {
+        await client.query(
+            `
+            UPDATE customers
+            SET referred_by = NULL,
+                first_marketer_id = NULL
+            WHERE referred_by = $1 OR first_marketer_id = $2
+            `,
+            [employeeId, employeeId]
+        );
+    }
+
+    async getCustomersByMarketerId(employeeId) {
+        const { rows } = await db.query(
+            `
+            SELECT id, user_id
+            FROM customers
+            WHERE referred_by = $1 OR first_marketer_id = $2
+            `,
+            [employeeId, employeeId]
+        );
+        return rows;
+    }
+
+
 }
 
 module.exports = new CustomerRepository();

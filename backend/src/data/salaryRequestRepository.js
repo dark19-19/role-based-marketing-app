@@ -264,6 +264,28 @@ class SalaryRequestRepository {
 
     }
 
+    async getPendingByEmployeeId(employeeId) {
+        const { rows } = await db.query(`
+            SELECT id, requested_amount
+            FROM salary_requests
+            WHERE employee_id = $1
+            AND status = 'PENDING'
+        `, [employeeId]);
+        return rows;
+    }
+
+    async bulkUpdateStatus(ids, status, client) {
+        await client.query(
+            `
+            UPDATE salary_requests
+            SET status = $1
+            WHERE id = ANY($2)
+            `,
+            [status, ids]
+        );
+    }
+
+
 }
 
 module.exports = new SalaryRequestRepository();

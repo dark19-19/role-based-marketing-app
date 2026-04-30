@@ -57,6 +57,28 @@ class WalletRepository {
         return rows;
     }
 
+    async getBalanceAndRequestedTransactions(employeeId) {
+        const { rows } = await db.query(`
+            SELECT id, amount, type
+            FROM wallet_transactions
+            WHERE employee_id = $1
+            AND type IN ('BALANCE', 'REQUESTED')
+        `, [employeeId]);
+        return rows;
+    }
+
+    async bulkUpdateType(ids, newType, client) {
+        await client.query(
+            `
+            UPDATE wallet_transactions
+            SET type = $1
+            WHERE id = ANY($2)
+            `,
+            [newType, ids]
+        );
+    }
+
+
 }
 
 module.exports = new WalletRepository();
