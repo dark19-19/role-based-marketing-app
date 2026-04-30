@@ -245,7 +245,7 @@ class EmployeeController {
   }
   async remove(req, res) {
     try {
-      const { successorId } = req.body;
+      const successorId  = req.body || null;
       const result = await employeeService.removeEmployee(req.params.id, successorId);
 
       res.json({
