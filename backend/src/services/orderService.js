@@ -492,6 +492,7 @@ class OrderService {
       ? await employeeRepository.findById(supervisorEmployee.supervisor_id)
       : null;
 
+      
     // If no marketer (self-registered customer), ALL profits go to company
     if (!marketerEmployee) {
       const totalProfit = order.total_sold_price;
@@ -512,11 +513,17 @@ class OrderService {
       };
     }
 
+
     // Hierarchy shifting (for orders WITH a marketer)
     // Case 1: No GS but has supervisor -> supervisor becomes the new GS
     if (gsEmployee === null) {
       // GS percentage goes to company (since there's no GS)
       company += gs;
+     // if there is no supervisor in the tree 
+      if( supervisorEmployee ===null ) {
+      company += supervisor ; 
+       }
+
       // Supervisor becomes the new GS
       gs = supervisor;
       supervisor = 0;
@@ -535,30 +542,6 @@ class OrderService {
       );
     }
 
-    // Hierarchy shifting (for orders WITH a GS)
-    // Case 2: there is a  GS but don't have supervisor -> General  supervisor becomes the new Marketer ( in terms of profits distributions )
-    if (gsEmployee !== null) {
-      // GS  percentage goes to company (since the customer is hooked directly with the GS )
-      company += gs;
-      // Supervisor  percentage goes to company (since there is no Supervisor )
-
-      company += supervisor ;
-      //General  Supervisor becomes the new Marketer ( in terms of profit Distributions)
-      gs = marketer;
-      supervisor = 0;
-      supervisorEmployee = null;
-
-      console.log(
-          "[OrderService][_calculateDistributions] hierarchy shift: no GS, supervisor promoted to GS",
-          {
-            company,
-            gs,
-            supervisor,
-            gsEmployee: gsEmployee?.id,
-            supervisorEmployee: null,
-          },
-      );
-    }
 
     const admin = await adminRepo.getCompanyAccount();
     const distributions = [];
