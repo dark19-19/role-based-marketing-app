@@ -34,7 +34,8 @@ class StatsRepository {
       FROM employees e
       JOIN users u ON u.id = e.user_id
       LEFT JOIN orders o ON o.marketer_id = e.id AND o.status != 'CANCELLED'
-      WHERE e.is_active = true
+      JOIN roles r ON r.id = u.role_id
+      WHERE e.is_active = true AND r.name IN ('MARKETER', 'SUPERVISOR', 'GENERAL_SUPERVISOR')
       GROUP BY e.id, u.first_name, u.last_name
       ORDER BY orders_count DESC
       LIMIT $1
