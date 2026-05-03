@@ -869,54 +869,50 @@ class EmployeeService {
         }
         // Marketers remain under the demoted supervisor (no action needed)
 
-      } else if (currentRole === "SUPERVISOR") {
+      }
+      else if (currentRole === "SUPERVISOR") {
         // Demote SUPERVISOR to MARKETER
-        // Two options:
-        // 1. If newSupervisorId provided: use that
-        // 2. If empty: use the same general supervisor that was above before demotion
+        
+        console.log("[DemoteEmployee] === SUPERVISOR -> MARKETER demotion ===");
+        console.log("[DemoteEmployee] Target employee ID:", employeeId);
+        console.log("[DemoteEmployee] employeeWithRole:", JSON.stringify(employeeWithRole));
 
-        let gsId = null;
-        if (newSupervisorId) {
-          // Verify the new supervisor exists
-          const newSupervisor = await employeeRepo.findEmployeeWithRole(newSupervisorId);
-          if (!newSupervisor) {
-            throw new Error("New supervisor not found");
-          }
-          if (newSupervisor.role !== "GENERAL_SUPERVISOR" && newSupervisor.role !== "SUPERVISOR") {
-            throw new Error("New supervisor must be a general supervisor or supervisor");
-          }
-          finalNewSupervisorId = newSupervisorId;
-          // If the new supervisor is a GENERAL_SUPERVISOR, use for marketers
-          if (newSupervisor.role === "GENERAL_SUPERVISOR") {
-            gsId = newSupervisorId;
-          } else {
-            // If supervisor, get their general supervisor
-            const gs = await employeeRepo.getEmployeeGeneralSupervisor(newSupervisorId);
-            if (gs && gs.id) {
-              gsId = gs.id;
-            } else {
-              throw new Error("Cannot find general supervisor for the new supervisor");
-            }
-          }
-        } else {
-          // Use the same general supervisor that was above before demotion
-          const gs = await employeeRepo.getEmployeeGeneralSupervisor(employeeId);
-          if (gs && gs.id) {
-            finalNewSupervisorId = gs.id;
-            gsId = gs.id;
-          } else {
-            throw new Error("Cannot demote without specifying a supervisor");
-          }
+        // 1-get the supervisor of the current supervisor (here we get the general supervisor)
+        const generalSupervisorId = employeeWithRole.supervisor_id;
+        console.log("[DemoteEmployee] Step 1 - General supervisor ID from employeeWithRole.supervisor_id:", generalSupervisorId);
+
+        const generalSupervisor = await employeeRepo.findEmployeeWithRole(generalSupervisorId);
+        console.log("[DemoteEmployee] Step 1 - General supervisor fetched:", JSON.stringify(generalSupervisor));
+        
+        // 2-we validate it
+        if (!generalSupervisor) {
+          throw new Error("General supervisor not found");
         }
+        if (generalSupervisor.role !== "GENERAL_SUPERVISOR") {
+          throw new Error("The supervisor of the targeted employee must be a general supervisor");
+        }
+        console.log("[DemoteEmployee] Step 2 - Validation passed. GS role:", generalSupervisor.role);
 
+        finalNewSupervisorId = newSupervisorId || generalSupervisor.id;
         newRole = "MARKETER";
+        console.log("[DemoteEmployee] finalNewSupervisorId (for demoted employee):", finalNewSupervisorId);
 
-        // 3️⃣ Reassign all marketers under the demoted supervisor to the GS
+        // then we get the sub-ordinates under the current supervisor (or targeted employee), here we get the marketers
         const subordinates = await employeeRepo.getSubordinates(employeeId);
+        console.log("[DemoteEmployee] Step 3 - All subordinates under targeted employee:", JSON.stringify(subordinates));
+
         const marketers = subordinates.filter(sub => sub.role === "MARKETER");
+        console.log("[DemoteEmployee] Step 3 - Filtered marketers:", JSON.stringify(marketers));
+        console.log("[DemoteEmployee] Step 3 - Marketers count:", marketers.length);
+        
+        // 3- we do the following : for every marketer, we update its supervisor_id to be the supervisor for our targeted employee (general supervisor)
         if (marketers.length > 0) {
           const marketerIds = marketers.map(m => m.id);
-          await employeeRepo.updateSupervisorBulk(marketerIds, gsId, client);
+          console.log("[DemoteEmployee] Step 3 - Reassigning marketer IDs:", marketerIds, "-> new supervisor:", generalSupervisor.id);
+          await employeeRepo.updateSupervisorBulk(marketerIds, generalSupervisor.id, client);
+          console.log("[DemoteEmployee] Step 3 - updateSupervisorBulk completed successfully");
+        } else {
+          console.log("[DemoteEmployee] Step 3 - No marketers to reassign");
         }
 
       } else if (currentRole === "MARKETER") {

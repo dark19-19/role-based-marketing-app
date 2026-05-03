@@ -26,6 +26,7 @@ class EmployeeRepository {
     SELECT
       e.id,
       e.branch_id,
+      e.supervisor_id,
       r.name as role
     FROM employees e
     JOIN users u ON u.id = e.user_id
@@ -516,10 +517,12 @@ ORDER BY name
   async getSubordinates(employeeId) {
     const { rows } = await db.query(
         `
-      SELECT id, user_id, branch_id, supervisor_id
-      FROM employees
-      WHERE supervisor_id = $1
-      AND is_active = true
+      SELECT e.id, e.user_id, e.branch_id, e.supervisor_id, r.name as role
+      FROM employees e
+      JOIN users u ON u.id = e.user_id
+      JOIN roles r ON r.id = u.role_id
+      WHERE e.supervisor_id = $1
+      AND e.is_active = true
     `,
         [employeeId]
     );
