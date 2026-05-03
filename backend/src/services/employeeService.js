@@ -192,20 +192,20 @@ class EmployeeService {
         supervisor:
           supervisor && supervisor.id
             ? {
-                id: supervisor.id,
-                name: supervisor.supervisor_name,
-                role: supervisor.supervisor_role,
-              }
+              id: supervisor.id,
+              name: supervisor.supervisor_name,
+              role: supervisor.supervisor_role,
+            }
             : null,
 
         // General supervisor info
         general_supervisor:
           generalSupervisor && generalSupervisor.id
             ? {
-                id: generalSupervisor.id,
-                name: generalSupervisor.general_supervisor_name,
-                role: generalSupervisor.general_supervisor_role,
-              }
+              id: generalSupervisor.id,
+              name: generalSupervisor.general_supervisor_name,
+              role: generalSupervisor.general_supervisor_role,
+            }
             : null,
 
         // Order stats
@@ -220,11 +220,11 @@ class EmployeeService {
           created_at: order.created_at,
           customer: order.customer_id
             ? {
-                id: order.customer_id,
-                name: order.customer_name,
-                phone: order.customer_phone,
-                governorate: order.governorate,
-              }
+              id: order.customer_id,
+              name: order.customer_name,
+              phone: order.customer_phone,
+              governorate: order.governorate,
+            }
             : null,
         })),
 
@@ -858,12 +858,24 @@ class EmployeeService {
 
         newRole = "SUPERVISOR";
         finalNewSupervisorId = newSupervisorId;
+
+        // 3️⃣ Reassign all supervisors under the demoted GS to the new GS
+        // Marketers remain under the demoted supervisor
+        const subordinates = await employeeRepo.getSubordinates(employeeId);
+        const supervisors = subordinates.filter(sub => sub.role === "SUPERVISOR");
+        if (supervisors.length > 0) {
+          const supervisorIds = supervisors.map(s => s.id);
+          await employeeRepo.updateSupervisorBulk(supervisorIds, newSupervisorId, client);
+        }
+        // Marketers remain under the demoted supervisor (no action needed)
+
       } else if (currentRole === "SUPERVISOR") {
         // Demote SUPERVISOR to MARKETER
         // Two options:
         // 1. If newSupervisorId provided: use that
         // 2. If empty: use the same general supervisor that was above before demotion
-        
+
+        let gsId = null;
         if (newSupervisorId) {
           // Verify the new supervisor exists
           const newSupervisor = await employeeRepo.findEmployeeWithRole(newSupervisorId);
@@ -874,24 +886,46 @@ class EmployeeService {
             throw new Error("New supervisor must be a general supervisor or supervisor");
           }
           finalNewSupervisorId = newSupervisorId;
+          // If the new supervisor is a GENERAL_SUPERVISOR, use for marketers
+          if (newSupervisor.role === "GENERAL_SUPERVISOR") {
+            gsId = newSupervisorId;
+          } else {
+            // If supervisor, get their general supervisor
+            const gs = await employeeRepo.getEmployeeGeneralSupervisor(newSupervisorId);
+            if (gs && gs.id) {
+              gsId = gs.id;
+            } else {
+              throw new Error("Cannot find general supervisor for the new supervisor");
+            }
+          }
         } else {
           // Use the same general supervisor that was above before demotion
           const gs = await employeeRepo.getEmployeeGeneralSupervisor(employeeId);
           if (gs && gs.id) {
             finalNewSupervisorId = gs.id;
+            gsId = gs.id;
           } else {
             throw new Error("Cannot demote without specifying a supervisor");
           }
         }
 
         newRole = "MARKETER";
+
+        // 3️⃣ Reassign all marketers under the demoted supervisor to the GS
+        const subordinates = await employeeRepo.getSubordinates(employeeId);
+        const marketers = subordinates.filter(sub => sub.role === "MARKETER");
+        if (marketers.length > 0) {
+          const marketerIds = marketers.map(m => m.id);
+          await employeeRepo.updateSupervisorBulk(marketerIds, gsId, client);
+        }
+
       } else if (currentRole === "MARKETER") {
         throw new Error("Marketer cannot be demoted further");
       } else {
         throw new Error("This role cannot be demoted");
       }
 
-      // 3️⃣ Update user's role
+      // 4️⃣ Update user's role
       const roleData = await roleRepo.findByName(newRole);
       if (!roleData) {
         throw new Error("Role not found");
@@ -899,10 +933,10 @@ class EmployeeService {
 
       await userRepo.updateRole(employee.user_id, roleData.id, client);
 
-      // 4️⃣ Update employee's supervisor
+      // 5️⃣ Update employee's supervisor
       await employeeRepo.updateSupervisor(employeeId, finalNewSupervisorId, client);
 
-      // 5️⃣ Notify the employee
+      // 6️⃣ Notify the employee
       try {
         await notificationHelper.notify(
           employee.user_id,
