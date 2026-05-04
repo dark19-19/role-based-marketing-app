@@ -516,20 +516,34 @@ class OrderRepository {
     let transactions = [];
 
     if (order.status === "DELIVRED") {
-      const txRes = await db.query(
-        `
-        SELECT
-          (u.first_name || ' ' || u.last_name) AS employee_name,
-          wt.amount
-        FROM wallet_transactions wt
-        JOIN employees e ON e.id = wt.employee_id
-        JOIN users u ON u.id = e.user_id
-        WHERE wt.order_id = $1
-      `,
-        [orderId],
+      const ocRes = await db.query(
+        `SELECT company_amount, general_supervisor_amount, supervisor_amount, marketer_amount
+         FROM order_commissions
+         WHERE order_id = $1`, [orderId]
       );
 
-      transactions = txRes.rows;
+      if (ocRes.rows.length > 0) {
+        const oc = ocRes.rows[0];
+        if (Number(oc.company_amount) > 0) transactions.push({ employee_name: "الشركة", amount: Number(oc.company_amount) });
+        if (Number(oc.general_supervisor_amount) > 0) transactions.push({ employee_name: order.general_supervisor_name || "المشرف العام", amount: Number(oc.general_supervisor_amount) });
+        if (Number(oc.supervisor_amount) > 0) transactions.push({ employee_name: order.supervisor_name || "المشرف", amount: Number(oc.supervisor_amount) });
+        if (Number(oc.marketer_amount) > 0) transactions.push({ employee_name: order.marketer_name || "المسوق", amount: Number(oc.marketer_amount) });
+      } else {
+        const txRes = await db.query(
+          `
+          SELECT
+            (u.first_name || ' ' || u.last_name) AS employee_name,
+            wt.amount
+          FROM wallet_transactions wt
+          JOIN employees e ON e.id = wt.employee_id
+          JOIN users u ON u.id = e.user_id
+          WHERE wt.order_id = $1
+        `,
+          [orderId],
+        );
+
+        transactions = txRes.rows;
+      }
     }
 
     return {
