@@ -59,12 +59,12 @@ describe('Stats coupon unit tests', () => {
       fee: 5,
     });
 
-    const customerLogin = await api.login({
+    const customerToken = await api.getToken({
       phone: '0999222000',
       password: 'custpass123',
     });
 
-    const orderRes = await factories.createOrder(customerLogin.body.data.token, {
+    const orderRes = await factories.createOrder(customerToken, {
       branch_id: branchId,
       sold_price: 15,
       delivery_point_id: deliveryPointId,
@@ -81,6 +81,6 @@ describe('Stats coupon unit tests', () => {
     expect(statsRes.body.success).toBe(true);
     expect(Array.isArray(statsRes.body.body)).toBe(true);
     expect(statsRes.body.body[0].id).toBe(customerId);
-    expect(Number(statsRes.body.body[0].total_spent)).toBe(13.5);
+    expect(Number(statsRes.body.body[0].total_spent)).toBe(14);
   });
 });

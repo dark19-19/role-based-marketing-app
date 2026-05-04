@@ -39,6 +39,17 @@ class OrderController {
       res.status(400).json({ success: false, message: err.message });
     }
   }
+  async markAsDelivred(req, res) {
+    try {
+      await db.runInTransaction(async (client) => {
+        await orderService.markOrderAsDelivred(req.user, req.params.id, client);
+      });
+
+      res.json({ success: true });
+    } catch (err) {
+      res.status(400).json({ success: false, message: err.message });
+    }
+  }
 
   async reject(req, res) {
     try {
@@ -90,7 +101,7 @@ class OrderController {
       }
 
       // Validate status values
-      const validStatuses = ["PENDING", "APPROVED", "REJECTED"];
+      const validStatuses = ["PENDING", "APPROVED", "DELIVRED", "REJECTED"];
       if (status && !validStatuses.includes(status.toUpperCase())) {
         return res.status(400).json({
           success: false,

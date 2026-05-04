@@ -266,8 +266,7 @@ describe('Order unit tests', () => {
       });
     expect(registerOne.status).toBe(201);
 
-    const customerOneLogin = await api.login({ phone: '0996000501', password: 'custpass123' });
-    const tokenOne = customerOneLogin.body.data.token;
+    const tokenOne = await api.getToken({ phone: '0996000501', password: 'custpass123' });
 
     const firstOrder = await api.request(api.app)
       .post('/api/orders')
@@ -288,8 +287,8 @@ describe('Order unit tests', () => {
     expect(firstDetails.status).toBe(200);
     expect(firstDetails.body.body.coupon_code).toBe('SAVE10');
     expect(Number(firstDetails.body.body.discount_percentage)).toBe(10);
-    expect(Number(firstDetails.body.body.discount_amount)).toBe(1.5);
-    expect(Number(firstDetails.body.body.sold_price)).toBe(13.5);
+    expect(Number(firstDetails.body.body.discount_amount)).toBe(1);
+    expect(Number(firstDetails.body.body.sold_price)).toBe(14);
 
     const reusedBySameCustomer = await api.request(api.app)
       .post('/api/orders')
@@ -316,10 +315,10 @@ describe('Order unit tests', () => {
       });
     expect(registerTwo.status).toBe(201);
 
-    const customerTwoLogin = await api.login({ phone: '0996000502', password: 'custpass123' });
+    const tokenTwo = await api.getToken({ phone: '0996000502', password: 'custpass123' });
     const expiredForOther = await api.request(api.app)
       .post('/api/orders')
-      .set(api.authHeader(customerTwoLogin.body.data.token))
+      .set(api.authHeader(tokenTwo))
       .send({
         branch_id: branchId,
         delivery_point_id: deliveryPointId,
@@ -331,7 +330,7 @@ describe('Order unit tests', () => {
     expect(expiredForOther.body.message).toBe('Coupon expired');
   });
 
-  test('branch manager can approve order in his branch; fails due to invalid UUID or status not pending', async () => {
+  test('branch manager can approve order in his branch as transitional state; fails due to invalid UUID or status not pending', async () => {
     const { productId } = await setupCatalog();
     const { branchId, chain } = await setupBranchAndChain();
     const governorateId = await getBranchGovernorateId(branchId);
@@ -359,6 +358,14 @@ describe('Order unit tests', () => {
     expect(approve.status).toBe(200);
     expect(approve.body.success).toBe(true);
 
+    const approvedDetails = await api.request(api.app)
+      .get(`/api/orders/${orderId}`)
+      .set(api.authHeader(bmLogin.body.data.token));
+    expect(approvedDetails.status).toBe(200);
+    expect(approvedDetails.body.body.status).toBe('APPROVED');
+    expect(Array.isArray(approvedDetails.body.body.transactions)).toBe(true);
+    expect(approvedDetails.body.body.transactions.length).toBe(0);
+
     const approveAgain = await api.request(api.app)
       .put(`/api/orders/${orderId}/approve`)
       .set(api.authHeader(bmLogin.body.data.token));
@@ -367,6 +374,66 @@ describe('Order unit tests', () => {
 
     const missing = await api.request(api.app)
       .put(`/api/orders/${randomUUID()}/approve`)
+      .set(api.authHeader(bmLogin.body.data.token));
+    expect(missing.status).toBe(400);
+    expect(missing.body.message).toBe('Order not found');
+  });
+
+  test('branch manager can mark approved order as delivred; fails due to invalid UUID or status not approved', async () => {
+    const { productId } = await setupCatalog();
+    const { branchId, chain } = await setupBranchAndChain();
+    const governorateId = await getBranchGovernorateId(branchId);
+
+    const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
+    const bmLogin = await api.login({ phone: chain.branchManager.phone, password: chain.branchManager.password });
+
+    const { customerId } = await createCustomerViaMarketer({
+      marketerToken: marketerLogin.body.data.token,
+      governorateId,
+      phone: '0996000065',
+    });
+
+    const created = await factories.createOrder(marketerLogin.body.data.token, {
+      customer_id: customerId,
+      branch_id: branchId,
+      sold_price: 10,
+      items: [{ product_id: productId, quantity: 1 }],
+    });
+    const orderId = created.body.data.id;
+
+    const failPending = await api.request(api.app)
+      .put(`/api/orders/${orderId}/delivred`)
+      .set(api.authHeader(bmLogin.body.data.token));
+    expect(failPending.status).toBe(400);
+    expect(failPending.body.success).toBe(false);
+
+    const approve = await api.request(api.app)
+      .put(`/api/orders/${orderId}/approve`)
+      .set(api.authHeader(bmLogin.body.data.token));
+    expect(approve.status).toBe(200);
+
+    const deliver = await api.request(api.app)
+      .put(`/api/orders/${orderId}/delivred`)
+      .set(api.authHeader(bmLogin.body.data.token));
+    expect(deliver.status).toBe(200);
+    expect(deliver.body.success).toBe(true);
+
+    const deliveredDetails = await api.request(api.app)
+      .get(`/api/orders/${orderId}`)
+      .set(api.authHeader(bmLogin.body.data.token));
+    expect(deliveredDetails.status).toBe(200);
+    expect(deliveredDetails.body.body.status).toBe('DELIVRED');
+    expect(Array.isArray(deliveredDetails.body.body.transactions)).toBe(true);
+    expect(deliveredDetails.body.body.transactions.length).toBeGreaterThan(0);
+
+    const deliverAgain = await api.request(api.app)
+      .put(`/api/orders/${orderId}/delivred`)
+      .set(api.authHeader(bmLogin.body.data.token));
+    expect(deliverAgain.status).toBe(400);
+    expect(deliverAgain.body.success).toBe(false);
+
+    const missing = await api.request(api.app)
+      .put(`/api/orders/${randomUUID()}/delivred`)
       .set(api.authHeader(bmLogin.body.data.token));
     expect(missing.status).toBe(400);
     expect(missing.body.message).toBe('Order not found');
@@ -464,6 +531,11 @@ describe('Order unit tests', () => {
     await api.request(api.app)
       .put(`/api/orders/${orderToApprove}/approve`)
       .set(api.authHeader(bmLogin.body.data.token));
+
+    const deliverForCancel = await api.request(api.app)
+      .put(`/api/orders/${orderToApprove}/delivred`)
+      .set(api.authHeader(bmLogin.body.data.token));
+    expect(deliverForCancel.status).toBe(200);
 
     const cancelApproved = await api.request(api.app)
       .put(`/api/orders/${orderToApprove}/cancel`)

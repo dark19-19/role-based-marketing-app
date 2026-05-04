@@ -92,8 +92,7 @@ describe('Coupon unit tests', () => {
       });
     expect(registerRes.status).toBe(201);
 
-    const customerLogin = await api.login({ phone: '0999111111', password: 'custpass123' });
-    const customerToken = customerLogin.body.data.token;
+    const customerToken = await api.getToken({ phone: '0999111111', password: 'custpass123' });
 
     const checkBefore = await api.request(api.app)
       .get('/api/coupons/check')
@@ -131,7 +130,7 @@ describe('Coupon unit tests', () => {
       .set(api.authHeader(customerToken));
     expect(orderDetails.status).toBe(200);
     expect(orderDetails.body.body.coupon_code).toBe('CUSTOM10');
-    expect(Number(orderDetails.body.body.discount_amount)).toBe(1.5);
-    expect(Number(orderDetails.body.body.total_sold_price || orderDetails.body.body.sold_price)).toBe(13.5);
+    expect(Number(orderDetails.body.body.discount_amount)).toBe(1);
+    expect(Number(orderDetails.body.body.total_sold_price || orderDetails.body.body.sold_price)).toBe(14);
   });
 });

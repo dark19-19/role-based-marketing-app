@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { randomUUID } = require('crypto');
 const config = require('../config');
 
 function sign(payload, options = { expiresIn: '72h' }) {
@@ -18,7 +19,10 @@ function decode(token) {
 }
 
 function buildAccessToken(user) {
-  return sign({ sub: user.id, phone: user.phone, role: user.role }, { expiresIn: '72h' });
+  return sign(
+    { sub: user.id, phone: user.phone, role: user.role, jti: randomUUID() },
+    { expiresIn: '30m' }
+  );
 }
 
 module.exports = { sign, verify, decode, buildAccessToken };

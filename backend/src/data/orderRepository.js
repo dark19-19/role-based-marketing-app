@@ -55,6 +55,17 @@ class OrderRepository {
     );
   }
 
+  async markAsDelivred(orderId, client) {
+    await client.query(
+      `
+      UPDATE orders
+      SET status = $1
+      WHERE id = $2
+    `,
+      ["DELIVRED", orderId],
+    );
+  }
+
   async listPaginated({ user, page = 1, limit = 20, filters = {} }) {
     const offset = (page - 1) * limit;
     let whereConditions = [];
@@ -501,10 +512,10 @@ class OrderRepository {
       [orderId],
     );
 
-    // 🔹 3. Wallet transactions (if approved)
+    // 🔹 3. Wallet transactions (if delivred)
     let transactions = [];
 
-    if (order.status === "APPROVED") {
+    if (order.status === "DELIVRED") {
       const txRes = await db.query(
         `
         SELECT
@@ -595,7 +606,7 @@ class OrderRepository {
       SELECT id, status
       FROM orders
       WHERE marketer_id = $1
-      AND status IN ('PENDING', 'APPROVED')
+      AND status IN ('PENDING', 'APPROVED', 'DELIVRED')
     `,
       [marketerId]
     );
@@ -660,7 +671,7 @@ class OrderRepository {
       SELECT id, status
       FROM orders
       WHERE marketer_id = $1
-      AND status IN ('PENDING', 'APPROVED')
+      AND status IN ('PENDING', 'APPROVED', 'DELIVRED')
     `,
         [marketerId]
     );

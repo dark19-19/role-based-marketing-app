@@ -5,6 +5,10 @@ const dbUtils = require('../utils/dbUtils');
 const db = require('../../src/helpers/DBHelper');
 
 describe('Salary requests unit tests', () => {
+  async function freshAdminToken() {
+    return await api.getAdminToken();
+  }
+
   async function setupBranchAndChain() {
     const adminLogin = await api.loginAdmin();
     const adminToken = adminLogin.body.data.token;
@@ -90,7 +94,7 @@ describe('Salary requests unit tests', () => {
     const reqB = await createSalaryRequest(b.tokens.marketer);
     expect(reqB.status).toBe(201);
 
-    const listRes = await listSalaryRequests(a.adminToken, '?page=1&limit=50');
+    const listRes = await listSalaryRequests(await freshAdminToken(), '?page=1&limit=50');
     expect(listRes.status).toBe(200);
     expect(listRes.body.success).toBe(true);
     expect(Array.isArray(listRes.body.data.data)).toBe(true);
@@ -166,11 +170,11 @@ describe('Salary requests unit tests', () => {
     const reqA = await createSalaryRequest(a.tokens.marketer);
     const requestAId = reqA.body.data.id;
 
-    const approveAsAdmin = await approveSalaryRequest(a.adminToken, requestAId);
+    const approveAsAdmin = await approveSalaryRequest(await freshAdminToken(), requestAId);
     expect(approveAsAdmin.status).toBe(200);
     expect(approveAsAdmin.body.success).toBe(true);
 
-    const detailsAfter = await getSalaryRequestDetails(a.adminToken, requestAId);
+    const detailsAfter = await getSalaryRequestDetails(await freshAdminToken(), requestAId);
     expect(detailsAfter.status).toBe(200);
     expect(detailsAfter.body.data.status).toBe('APPROVED');
 
@@ -183,14 +187,14 @@ describe('Salary requests unit tests', () => {
     expect(approveAsBM.status).toBe(200);
     expect(approveAsBM.body.success).toBe(true);
 
-    const detailsB = await getSalaryRequestDetails(b.adminToken, requestBId);
+    const detailsB = await getSalaryRequestDetails(await freshAdminToken(), requestBId);
     expect(detailsB.body.data.status).toBe('APPROVED');
   });
 
   test('admin and branch manager fails to approve salary requests if the request status is not pending, or due to invalid UUID', async () => {
     const setup = await setupBranchAndChain();
 
-    const missing = await approveSalaryRequest(setup.adminToken, randomUUID());
+    const missing = await approveSalaryRequest(await freshAdminToken(), randomUUID());
     expect(missing.status).toBe(400);
     expect(missing.body.success).toBe(false);
 
@@ -198,10 +202,10 @@ describe('Salary requests unit tests', () => {
     const created = await createSalaryRequest(setup.tokens.marketer);
     const id = created.body.data.id;
 
-    const ok = await approveSalaryRequest(setup.adminToken, id);
+    const ok = await approveSalaryRequest(await freshAdminToken(), id);
     expect(ok.status).toBe(200);
 
-    const again = await approveSalaryRequest(setup.adminToken, id);
+    const again = await approveSalaryRequest(await freshAdminToken(), id);
     expect(again.status).toBe(400);
     expect(again.body.success).toBe(false);
   });
@@ -213,18 +217,18 @@ describe('Salary requests unit tests', () => {
     const created = await createSalaryRequest(setup.tokens.marketer);
     const id = created.body.data.id;
 
-    const rejected = await rejectSalaryRequest(setup.adminToken, id);
+    const rejected = await rejectSalaryRequest(await freshAdminToken(), id);
     expect(rejected.status).toBe(200);
     expect(rejected.body.success).toBe(true);
 
-    const details = await getSalaryRequestDetails(setup.adminToken, id);
+    const details = await getSalaryRequestDetails(await freshAdminToken(), id);
     expect(details.body.data.status).toBe('REJECTED');
   });
 
   test('admin and branch manager fails to reject salary requests if the request is not pending, or due to invalid UUID', async () => {
     const setup = await setupBranchAndChain();
 
-    const missing = await rejectSalaryRequest(setup.adminToken, randomUUID());
+    const missing = await rejectSalaryRequest(await freshAdminToken(), randomUUID());
     expect(missing.status).toBe(400);
     expect(missing.body.success).toBe(false);
 
@@ -232,10 +236,10 @@ describe('Salary requests unit tests', () => {
     const created = await createSalaryRequest(setup.tokens.marketer);
     const id = created.body.data.id;
 
-    const ok = await rejectSalaryRequest(setup.adminToken, id);
+    const ok = await rejectSalaryRequest(await freshAdminToken(), id);
     expect(ok.status).toBe(200);
 
-    const again = await rejectSalaryRequest(setup.adminToken, id);
+    const again = await rejectSalaryRequest(await freshAdminToken(), id);
     expect(again.status).toBe(400);
     expect(again.body.success).toBe(false);
   });
@@ -248,12 +252,12 @@ describe('Salary requests unit tests', () => {
     const created = await createSalaryRequest(setup.tokens.marketer);
     const requestId = created.body.data.id;
 
-    const res = await removeTransaction(setup.adminToken, requestId, t1);
+    const res = await removeTransaction(await freshAdminToken(), requestId, t1);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(Number(res.body.data.newAmount)).toBe(5);
 
-    const details = await getSalaryRequestDetails(setup.adminToken, requestId);
+    const details = await getSalaryRequestDetails(await freshAdminToken(), requestId);
     expect(details.status).toBe(200);
     expect(Number(details.body.data.amount)).toBe(5);
     expect(Array.isArray(details.body.data.transactions)).toBe(true);
@@ -271,7 +275,7 @@ describe('Salary requests unit tests', () => {
   test('admin and branch manager fails to remove transactions from a salary request due to invalid UUID (request not found), or empty request', async () => {
     const setup = await setupBranchAndChain();
 
-    const missing = await removeTransaction(setup.adminToken, randomUUID(), randomUUID());
+    const missing = await removeTransaction(await freshAdminToken(), randomUUID(), randomUUID());
     expect(missing.status).toBe(400);
     expect(missing.body.success).toBe(false);
 
@@ -281,7 +285,7 @@ describe('Salary requests unit tests', () => {
       status: 'PENDING',
     });
 
-    const empty = await removeTransaction(setup.adminToken, emptyId, randomUUID());
+    const empty = await removeTransaction(await freshAdminToken(), emptyId, randomUUID());
     expect(empty.status).toBe(400);
     expect(empty.body.success).toBe(false);
   });
@@ -293,7 +297,7 @@ describe('Salary requests unit tests', () => {
     const created = await createSalaryRequest(setup.tokens.marketer);
     const id = created.body.data.id;
 
-    const asAdmin = await getSalaryRequestDetails(setup.adminToken, id);
+    const asAdmin = await getSalaryRequestDetails(await freshAdminToken(), id);
     expect(asAdmin.status).toBe(200);
     expect(asAdmin.body.success).toBe(true);
     expect(Array.isArray(asAdmin.body.data.transactions)).toBe(true);
@@ -304,4 +308,3 @@ describe('Salary requests unit tests', () => {
     expect(Array.isArray(asBM.body.data.transactions)).toBe(true);
   });
 });
-

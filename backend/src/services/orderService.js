@@ -234,6 +234,40 @@ class OrderService {
       throw new Error("Unauthorized");
     }
 
+    await orderRepository.updateStatus(orderId, "APPROVED", client);
+
+    const customer = await customerRepository.findById(order.customer_id);
+    if (customer) {
+      await notificationHelper.notify(
+        customer.user_id,
+        "تم قبول طلبك",
+        `تمت الموافقة على طلبك رقم ${orderId.substring(0, 8)} من قبل مدير الفرع.`,
+      );
+    }
+
+    if (order.marketer_id) {
+      const marketer = await employeeRepository.findById(order.marketer_id);
+      if (marketer) {
+        await notificationHelper.notify(
+          marketer.user_id,
+          "تم قبول طلبك",
+          `تمت الموافقة على الطلب الذي قمت بإنشائه من قبل مدير الفرع.`,
+        );
+      }
+    }
+  }
+
+  async markOrderAsDelivred(user, orderId, client) {
+    const order = await orderRepository.findById(orderId);
+    if (!order) throw new Error("Order not found");
+    if (order.status !== "APPROVED")
+      throw new Error("You cannot change this order status");
+
+    const employee = await employeeRepository.findByUserId(user.id);
+    if (!employee || employee.branch_id !== order.branch_id) {
+      throw new Error("Unauthorized");
+    }
+
     const items = await orderItemRepository.findByOrderId(orderId);
     let deliveryFee = 0;
     if (order.delivery_point_id) {
@@ -281,9 +315,9 @@ class OrderService {
       }
     }
 
-    await orderRepository.updateStatus(orderId, "APPROVED", client);
+    await orderRepository.markAsDelivred(orderId, client);
 
-    // Delete all comments for this order (force delete when order is approved)
+    // Delete all comments for this order (force delete when order is delivred)
     await orderCommentService.deleteCommentsByOrderId(orderId, client);
 
     // Notify the customer
@@ -291,8 +325,8 @@ class OrderService {
     if (customer) {
       await notificationHelper.notify(
         customer.user_id,
-        "تم قبول طلبك",
-        `تمت الموافقة على طلبك رقم ${orderId.substring(0, 8)} من قبل مدير الفرع.`,
+        "تم تسليم طلبك",
+        `تم تسليم طلبك رقم ${orderId.substring(0, 8)} من قبل مدير الفرع.`,
       );
     }
 
@@ -302,8 +336,8 @@ class OrderService {
       if (marketer) {
         await notificationHelper.notify(
           marketer.user_id,
-          "تم قبول طلبك",
-          `تمت الموافقة على الطلب الذي قمت بإنشائه من قبل مدير الفرع، وتم إيداع المبلغ في حسابك.`,
+          "تم تسليم الطلب",
+          `تم تسليم الطلب الذي قمت بإنشائه من قبل مدير الفرع، وتم إيداع المبلغ في حسابك.`,
         );
       }
     }
@@ -587,7 +621,7 @@ class OrderService {
 
     if (!order) throw new Error("Order not found");
 
-    if (order.status === "APPROVED")
+    if (order.status === "APPROVED" || order.status === "DELIVRED")
       throw new Error("Order is approved, you cannot reject it");
 
     if (order.status === "REJECTED")
@@ -728,6 +762,7 @@ class OrderService {
       status_filters: [
         { value: "PENDING", label: "Pending" },
         { value: "APPROVED", label: "Approved" },
+        { value: "DELIVRED", label: "Delivred" },
         { value: "REJECTED", label: "Rejected" },
       ],
     };
