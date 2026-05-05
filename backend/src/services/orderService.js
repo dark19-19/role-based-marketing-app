@@ -858,8 +858,8 @@ class OrderService {
       throw new Error("Order is already cancelled");
     }
 
-    // Check if order status is PENDING - only pending orders can be cancelled
-    if (order.status !== "PENDING") {
+    // Check if order status is PENDING - only pending orders can be cancelled from the customer side , and only the approved order can be canceled from the branch manager
+    if (order.status !== "PENDING" ||( order.status !== "APPROVED" && user.role !== "BRANCH_MANAGER"  ) ) {
       throw new Error("Only pending orders can be cancelled");
     }
 
