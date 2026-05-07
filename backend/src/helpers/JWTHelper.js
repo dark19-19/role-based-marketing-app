@@ -21,7 +21,7 @@ function decode(token) {
 function buildAccessToken(user) {
   return sign(
     { sub: user.id, phone: user.phone, role: user.role, jti: randomUUID() },
-    { expiresIn: '30m' }
+    { expiresIn: '72h' }
   );
 }
 

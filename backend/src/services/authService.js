@@ -300,8 +300,10 @@ class AuthService {
         phone,
         role,
       });
-
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000 * 3 * 24);
+      //token lives for 3 days
+       const expiresAt = new Date(Date.now() + 60 * 60 * 1000 * 3 * 24);
+      //the token lives to 31 minutes
+      // const expiresAt = new Date(Date.now() + 60 *  1000 * 31);
 
       // Keep the current session alive but provide a new rotated token if needed
       // Or we can revoke previous ones to ensure even the refresh rotates strictly
