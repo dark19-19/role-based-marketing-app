@@ -7,3 +7,5 @@ process.env.DATABASE_URL =
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret';
 process.env.ENCRYPTION_KEY =
   process.env.ENCRYPTION_KEY || 'x'.repeat(32);
+
+process.env.JEST_TEST_TIMEOUT_MS = process.env.JEST_TEST_TIMEOUT_MS || '30000';

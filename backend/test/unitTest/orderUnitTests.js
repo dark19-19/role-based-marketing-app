@@ -542,7 +542,7 @@ describe('Order unit tests', () => {
       .set(api.authHeader(adminToken));
 
     expect(cancelApproved.status).toBe(400);
-    expect(cancelApproved.body.message).toBe('Only pending orders can be cancelled');
+    expect(cancelApproved.body.message).toBe('Only pending orders can be cancelled, or approved orders by branch manager');
 
     const cancelMissing = await api.request(api.app)
       .put(`/api/orders/${randomUUID()}/cancel`)

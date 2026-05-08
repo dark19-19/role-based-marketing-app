@@ -93,6 +93,63 @@ function parseProductsListCacheTtlSeconds() {
   return ttl;
 }
 
+function parseServerHardening() {
+  const headersTimeoutMs = parseOptionalIntEnv('SERVER_HEADERS_TIMEOUT_MS', 6000);
+  const requestTimeoutMs = parseOptionalIntEnv('SERVER_REQUEST_TIMEOUT_MS', 30000);
+  const keepAliveTimeoutMs = parseOptionalIntEnv('SERVER_KEEP_ALIVE_TIMEOUT_MS', 5000);
+  const maxConnections = parseOptionalIntEnv('SERVER_MAX_CONNECTIONS', 10000);
+  const maxHeadersCount = parseOptionalIntEnv('SERVER_MAX_HEADERS_COUNT', 200);
+  const maxConcurrentConnectionsPerIp = parseOptionalIntEnv('SERVER_MAX_CONCURRENT_CONNECTIONS_PER_IP', 10);
+  const connectionWindowMs = parseOptionalIntEnv('SERVER_CONNECTION_WINDOW_MS', 10000);
+  const maxConnectionsPerIpWindow = parseOptionalIntEnv('SERVER_MAX_CONNECTIONS_PER_IP_WINDOW', 10);
+  const socketIdleTimeoutMs = parseOptionalIntEnv('SERVER_SOCKET_IDLE_TIMEOUT_MS', 8000);
+  const slowMinBytes = parseOptionalIntEnv('SERVER_SLOW_MIN_BYTES', 500);
+  const slowPartialIdleMs = parseOptionalIntEnv('SERVER_SLOW_PARTIAL_IDLE_MS', 3000);
+  const slowNoDataIdleMs = parseOptionalIntEnv('SERVER_SLOW_NO_DATA_IDLE_MS', 4000);
+  const slowCheckIntervalMs = parseOptionalIntEnv('SERVER_SLOW_CHECK_INTERVAL_MS', 1000);
+  const cleanupIntervalMs = parseOptionalIntEnv('SERVER_CONNECTION_TRACKING_CLEANUP_INTERVAL_MS', 30000);
+
+  const mustBePositive = [
+    ['SERVER_HEADERS_TIMEOUT_MS', headersTimeoutMs],
+    ['SERVER_REQUEST_TIMEOUT_MS', requestTimeoutMs],
+    ['SERVER_KEEP_ALIVE_TIMEOUT_MS', keepAliveTimeoutMs],
+    ['SERVER_MAX_CONNECTIONS', maxConnections],
+    ['SERVER_MAX_HEADERS_COUNT', maxHeadersCount],
+    ['SERVER_MAX_CONCURRENT_CONNECTIONS_PER_IP', maxConcurrentConnectionsPerIp],
+    ['SERVER_CONNECTION_WINDOW_MS', connectionWindowMs],
+    ['SERVER_MAX_CONNECTIONS_PER_IP_WINDOW', maxConnectionsPerIpWindow],
+    ['SERVER_SOCKET_IDLE_TIMEOUT_MS', socketIdleTimeoutMs],
+    ['SERVER_SLOW_MIN_BYTES', slowMinBytes],
+    ['SERVER_SLOW_PARTIAL_IDLE_MS', slowPartialIdleMs],
+    ['SERVER_SLOW_NO_DATA_IDLE_MS', slowNoDataIdleMs],
+    ['SERVER_SLOW_CHECK_INTERVAL_MS', slowCheckIntervalMs],
+    ['SERVER_CONNECTION_TRACKING_CLEANUP_INTERVAL_MS', cleanupIntervalMs],
+  ];
+
+  for (const [name, value] of mustBePositive) {
+    if (value < 1) {
+      throw new Error(`Invalid ${name}: ${value} (expected >= 1)`);
+    }
+  }
+
+  return {
+    headersTimeoutMs,
+    requestTimeoutMs,
+    keepAliveTimeoutMs,
+    maxConnections,
+    maxHeadersCount,
+    maxConcurrentConnectionsPerIp,
+    connectionWindowMs,
+    maxConnectionsPerIpWindow,
+    socketIdleTimeoutMs,
+    slowMinBytes,
+    slowPartialIdleMs,
+    slowNoDataIdleMs,
+    slowCheckIntervalMs,
+    cleanupIntervalMs,
+  };
+}
+
 const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
@@ -103,6 +160,7 @@ const config = {
   notificationsMaxCount: parseNotificationMaxCount(),
   notificationsHardDeleteAfterDays: parseNotificationsHardDeleteAfterDays(),
   productsListCacheTtlSeconds: parseProductsListCacheTtlSeconds(),
+  serverHardening: parseServerHardening(),
   admin1Phone: requiredEnv('ADMIN_1_PHONE'),
   admin1Password: requiredEnv('ADMIN_1_PASSWORD'),
   admin2Phone: requiredEnv('ADMIN_2_PHONE'),

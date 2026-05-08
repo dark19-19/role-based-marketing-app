@@ -101,7 +101,7 @@ class OrderController {
       }
 
       // Validate status values
-      const validStatuses = ["PENDING", "APPROVED", "DELIVRED", "REJECTED"];
+      const validStatuses = ["PENDING", "APPROVED", "DELIVRED", "REJECTED" , "CANCELLED"];
       if (status && !validStatuses.includes(status.toUpperCase())) {
         return res.status(400).json({
           success: false,

@@ -4,7 +4,8 @@ class WalletController {
     async getSummary(req, res) {
         try {
             let targetUser = req.user;
-            if (req.user.role === 'ADMIN' || "BRANCH_MANAGER" || "GENERAL_SUPERVISOR" || "SUPERVISOR" && req.query.userId) {
+            const canQueryOtherUsers = ['ADMIN', 'BRANCH_MANAGER', 'GENERAL_SUPERVISOR', 'SUPERVISOR'].includes(req.user.role);
+            if (canQueryOtherUsers && req.query.userId) {
                 targetUser = { id: req.query.userId };
             }
             const result = await walletService.getSummary(targetUser);
