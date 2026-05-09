@@ -337,7 +337,7 @@ class OrderService {
         await notificationHelper.notify(
           marketer.user_id,
           "تم تسليم الطلب",
-          `تم تسليم الطلب الذي قمت بإنشائه من قبل مدير الفرع، وتم إيداع المبلغ في حسابك.`,
+          `تم تسليم الطلب الذي قمت بإنشائه من قبل مدير الفرع، .`,
         );
       }
     }
@@ -526,7 +526,7 @@ class OrderService {
       ? await employeeRepository.findById(supervisorEmployee.supervisor_id)
       : null;
 
-      
+
     // If no marketer (self-registered customer), ALL profits go to company
     if (!marketerEmployee) {
       const totalProfit = order.total_sold_price;
@@ -553,10 +553,10 @@ class OrderService {
     if (gsEmployee === null) {
       // GS percentage goes to company (since there's no GS)
       company += gs;
-     // if there is no supervisor in the tree 
-      if( supervisorEmployee ===null ) {
-      company += supervisor ; 
-       }
+      // if there is no supervisor in the tree 
+      if (supervisorEmployee === null) {
+        company += supervisor;
+      }
 
       // Supervisor becomes the new GS
       gs = supervisor;
@@ -799,7 +799,7 @@ class OrderService {
         try {
           console.log("[OrderService][getById] preview start", {
             orderId,
-            orderNotes : order.notes,
+            orderNotes: order.notes,
             total_sold_price: order.total_sold_price,
             discount_amount: order.discount_amount,
             total_main_price: order.total_main_price,

@@ -1,6 +1,7 @@
 const orderCommentRepository = require("../data/orderCommentRepository");
 const orderRepository = require("../data/orderRepository");
 const employeeRepository = require("../data/employeeRepository");
+const notificationHelper = require("../helpers/notificationHelper");
 
 class OrderCommentService {
   /**
@@ -55,10 +56,42 @@ class OrderCommentService {
       [user.id]
     );
 
+    const commenterName = rows[0] ? `${rows[0].first_name} ${rows[0].last_name}` : "موظف";
+    const commenterRole = rows[0] ? rows[0].role : null;
+
+    // --- Notification Logic ---
+    try {
+      const title = "تعليق جديد على الطلب";
+      const message = `قام ${commenterName} بإضافة تعليق على الطلب: ${content.substring(0, 50)}${content.length > 50 ? "..." : ""}`;
+
+      if (commenterRole === "MARKETER") {
+        // Notify Branch Manager
+        const branchManagerUserId = await employeeRepository.getBranchManagerUserId(order.branch_id);
+        if (branchManagerUserId) {
+          await notificationHelper.notify(branchManagerUserId, title, message);
+        }
+      } else if (
+        commenterRole === "BRANCH_MANAGER" ||
+        commenterRole === "SUPERVISOR" ||
+        commenterRole === "GENERAL_SUPERVISOR"
+      ) {
+        // Notify Marketer
+        const marketerEmployee = await employeeRepository.findById(order.marketer_id);
+        if (marketerEmployee && marketerEmployee.user_id) {
+          await notificationHelper.notify(marketerEmployee.user_id, title, message);
+        }
+
+        // If it's a supervisor commenting, also notify the branch manager? 
+        // For now, let's stick to the core requirement.
+      }
+    } catch (notifyErr) {
+      console.error("[OrderCommentService] Notification error (ignored):", notifyErr.message);
+    }
+
     return {
       ...comment,
-      added_by_name: rows[0] ? `${rows[0].first_name} ${rows[0].last_name}` : null,
-      added_by_role: rows[0] ? rows[0].role : null,
+      added_by_name: commenterName,
+      added_by_role: commenterRole,
     };
   }
 
