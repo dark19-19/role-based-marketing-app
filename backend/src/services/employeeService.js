@@ -40,8 +40,11 @@ class EmployeeService {
           throw new Error("المشرف غير موجود");
         }
 
-        if (supervisor.role !== "GENERAL_SUPERVISOR") {
-          throw new Error("المشرف يجب أن يكون مشرفاً عاماً");
+        if (
+          supervisor.role !== "GENERAL_SUPERVISOR" &&
+          supervisor.role !== "ADMIN"
+        ) {
+          throw new Error("المشرف يجب أن يكون مشرفاً عاماً أو أدمن");
         }
 
         finalSupervisor = supervisorId;
@@ -62,9 +65,10 @@ class EmployeeService {
 
         if (
           supervisor.role !== "SUPERVISOR" &&
-          supervisor.role !== "GENERAL_SUPERVISOR"
+          supervisor.role !== "GENERAL_SUPERVISOR" &&
+          supervisor.role !== "ADMIN"
         ) {
-          throw new Error("المشرف يجب أن يكون مشرفاً أو مشرفاً عاماً");
+          throw new Error("المشرف يجب أن يكون مشرفاً أو مشرفاً عاماً أو أدمن");
         }
 
         finalSupervisor = supervisorId;
@@ -688,11 +692,42 @@ class EmployeeService {
         if (!supervisorId) {
           throw new Error("Supervisor ID is required for supervisor role");
         }
+
+        const supervisor =
+          await employeeRepo.findEmployeeWithRole(supervisorId);
+
+        if (!supervisor) {
+          throw new Error("المشرف غير موجود");
+        }
+
+        if (
+          supervisor.role !== "GENERAL_SUPERVISOR" &&
+          supervisor.role !== "ADMIN"
+        ) {
+          throw new Error("المشرف يجب أن يكون مشرفاً عاماً أو أدمن");
+        }
+
         finalSupervisor = supervisorId;
       } else if (role === "MARKETER") {
         if (!supervisorId) {
           throw new Error("Supervisor ID is required for marketer role");
         }
+
+        const supervisor =
+          await employeeRepo.findEmployeeWithRole(supervisorId);
+
+        if (!supervisor) {
+          throw new Error("المشرف غير موجود");
+        }
+
+        if (
+          supervisor.role !== "SUPERVISOR" &&
+          supervisor.role !== "GENERAL_SUPERVISOR" &&
+          supervisor.role !== "ADMIN"
+        ) {
+          throw new Error("المشرف يجب أن يكون مشرفاً أو مشرفاً عاماً أو أدمن");
+        }
+
         finalSupervisor = supervisorId;
       }
 
@@ -852,8 +887,11 @@ class EmployeeService {
         if (!supervisorToBe) {
           throw new Error("New supervisor not found");
         }
-        if (supervisorToBe.role !== "GENERAL_SUPERVISOR") {
-          throw new Error("New supervisor must be a general supervisor");
+        if (
+          supervisorToBe.role !== "GENERAL_SUPERVISOR" &&
+          supervisorToBe.role !== "ADMIN"
+        ) {
+          throw new Error("New supervisor must be a general supervisor or admin");
         }
 
         newRole = "SUPERVISOR";
@@ -888,8 +926,13 @@ class EmployeeService {
         if (!generalSupervisor) {
           throw new Error("General supervisor not found");
         }
-        if (generalSupervisor.role !== "GENERAL_SUPERVISOR") {
-          throw new Error("The supervisor of the targeted employee must be a general supervisor");
+        if (
+          generalSupervisor.role !== "GENERAL_SUPERVISOR" &&
+          generalSupervisor.role !== "ADMIN"
+        ) {
+          throw new Error(
+            "The supervisor of the targeted employee must be a general supervisor or admin",
+          );
         }
         console.log("[DemoteEmployee] Step 2 - Validation passed. GS role:", generalSupervisor.role);
 
