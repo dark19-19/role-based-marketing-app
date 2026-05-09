@@ -66,6 +66,20 @@ async function revoke() {
       );
       const productIds = seededProducts.rows.map((row) => row.id);
 
+      const seededOrderItems = productIds.length
+        ? await client.query(
+            `
+              SELECT DISTINCT order_id
+              FROM order_items
+              WHERE product_id = ANY($1::uuid[])
+            `,
+            [productIds],
+          )
+        : { rows: [] };
+
+      const productLinkedOrderIds = seededOrderItems.rows.map((row) => row.order_id);
+      const allOrderIds = [...new Set([...orderIds, ...productLinkedOrderIds])];
+
       let deletedOrderComments = 0;
       let deletedCouponUsages = 0;
       let deletedNotifications = 0;
@@ -82,26 +96,26 @@ async function revoke() {
       let deletedProducts = 0;
       let deletedCategories = 0;
 
-      if (orderIds.length > 0 || userIds.length > 0) {
+      if (allOrderIds.length > 0 || userIds.length > 0) {
         const result = await client.query(
           `
             DELETE FROM order_comments
             WHERE ($1::uuid[] IS NOT NULL AND order_id = ANY($1::uuid[]))
                OR ($2::uuid[] IS NOT NULL AND added_by = ANY($2::uuid[]))
           `,
-          [orderIds.length ? orderIds : null, userIds.length ? userIds : null],
+          [allOrderIds.length ? allOrderIds : null, userIds.length ? userIds : null],
         );
         deletedOrderComments = result.rowCount;
       }
 
-      if (orderIds.length > 0 || customerIds.length > 0) {
+      if (allOrderIds.length > 0 || customerIds.length > 0) {
         const result = await client.query(
           `
             DELETE FROM coupon_usages
             WHERE ($1::uuid[] IS NOT NULL AND order_id = ANY($1::uuid[]))
                OR ($2::uuid[] IS NOT NULL AND customer_id = ANY($2::uuid[]))
           `,
-          [orderIds.length ? orderIds : null, customerIds.length ? customerIds : null],
+          [allOrderIds.length ? allOrderIds : null, customerIds.length ? customerIds : null],
         );
         deletedCouponUsages = result.rowCount;
       }
@@ -114,32 +128,32 @@ async function revoke() {
         deletedNotifications = result.rowCount;
       }
 
-      if (employeeIds.length > 0 || orderIds.length > 0) {
+      if (employeeIds.length > 0 || allOrderIds.length > 0) {
         const result = await client.query(
           `
             DELETE FROM wallet_transactions
             WHERE ($1::uuid[] IS NOT NULL AND employee_id = ANY($1::uuid[]))
                OR ($2::uuid[] IS NOT NULL AND order_id = ANY($2::uuid[]))
           `,
-          [employeeIds.length ? employeeIds : null, orderIds.length ? orderIds : null],
+          [employeeIds.length ? employeeIds : null, allOrderIds.length ? allOrderIds : null],
         );
         deletedWalletTransactions = result.rowCount;
       }
 
-      if (orderIds.length > 0) {
+      if (allOrderIds.length > 0) {
         let result = await client.query(
           `DELETE FROM order_commissions WHERE order_id = ANY($1::uuid[])`,
-          [orderIds],
+          [allOrderIds],
         );
         deletedOrderCommissions = result.rowCount;
 
         result = await client.query(
           `DELETE FROM order_items WHERE order_id = ANY($1::uuid[])`,
-          [orderIds],
+          [allOrderIds],
         );
         deletedOrderItems = result.rowCount;
 
-        result = await client.query(`DELETE FROM orders WHERE id = ANY($1::uuid[])`, [orderIds]);
+        result = await client.query(`DELETE FROM orders WHERE id = ANY($1::uuid[])`, [allOrderIds]);
         deletedOrders = result.rowCount;
       }
 
@@ -178,6 +192,12 @@ async function revoke() {
           [productIds],
         );
         deletedProductImages = result.rowCount;
+
+        result = await client.query(
+          `DELETE FROM order_items WHERE product_id = ANY($1::uuid[])`,
+          [productIds],
+        );
+        deletedOrderItems += result.rowCount;
 
         result = await client.query(`DELETE FROM products WHERE id = ANY($1::uuid[])`, [productIds]);
         deletedProducts = result.rowCount;
