@@ -15,9 +15,9 @@ class OrderCommentService {
       throw new Error("Order not found");
     }
 
-    // Check if order is still pending (can only comment on pending orders)
-    if (order.status !== "PENDING") {
-      throw new Error("Can only comment on pending orders");
+    // Check if order is pending or approved (can comment on both)
+    if (order.status !== "PENDING" && order.status !== "APPROVED") {
+      throw new Error("Can only comment on pending or approved orders");
     }
 
     // Get employee data if user is not admin/customer
