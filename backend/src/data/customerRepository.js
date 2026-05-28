@@ -27,7 +27,7 @@ class CustomerRepository {
 
     }
 
-    async listPaginated({ page = 1, limit = 20, search = null, employeeId = null, role = null, userId = null }) {
+    async listPaginated({ page = 1, limit = 20, search = null}) {
 
         const offset = (page - 1) * limit;
 
@@ -41,48 +41,6 @@ class CustomerRepository {
             );
             params.push(`%${search}%`);
             paramIndex++;
-        }
-
-        // Role-based filtering
-        if (role === 'MARKETER') {
-            // Marketer sees only their own customers
-            whereConditions.push(`c.referred_by = $${paramIndex}`);
-            params.push(employeeId);
-            paramIndex++;
-        } else if (role === 'SUPERVISOR') {
-            // Supervisor sees their own customers + customers of marketers under them
-            const eid1 = `$${paramIndex}`;
-            const eid2 = `$${paramIndex + 1}`;
-            params.push(employeeId, employeeId);
-            paramIndex += 2;
-            whereConditions.push(`(
-                c.referred_by = ${eid1}
-                OR c.referred_by IN (
-                    SELECT e.id FROM employees e
-                    WHERE e.supervisor_id = ${eid2}
-                )
-            )`);
-        } else if (role === 'GENERAL_SUPERVISOR') {
-            // General supervisor sees their own + supervisors' + marketers' customers
-            const eid1 = `$${paramIndex}`;
-            const eid2 = `$${paramIndex + 1}`;
-            const eid3 = `$${paramIndex + 2}`;
-            params.push(employeeId, employeeId, employeeId);
-            paramIndex += 3;
-            whereConditions.push(`(
-                c.referred_by = ${eid1}
-                OR c.referred_by IN (
-                    SELECT e.id FROM employees e
-                    WHERE e.supervisor_id = ${eid2}
-                )
-                OR c.referred_by IN (
-                    SELECT e.id FROM employees e
-                    WHERE e.supervisor_id IN (
-                        SELECT e2.id FROM employees e2
-                        WHERE e2.supervisor_id = ${eid3}
-                    )
-                )
-            )`);
         }
         // ADMIN and BRANCH_MANAGER see all active customers (no additional filter)
 
