@@ -165,6 +165,10 @@ const config = {
   admin1Password: requiredEnv('ADMIN_1_PASSWORD'),
   admin2Phone: requiredEnv('ADMIN_2_PHONE'),
   admin2Password: requiredEnv('ADMIN_2_PASSWORD'),
+  admin3Phone: requiredEnv('ADMIN_3_PHONE', ''),
+  admin3Password: requiredEnv('ADMIN_3_PASSWORD', ''),
+  admin4Phone: requiredEnv('ADMIN_4_PHONE', ''),
+  admin4Password: requiredEnv('ADMIN_4_PASSWORD', ''),
 };
 
 module.exports = config;
