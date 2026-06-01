@@ -153,6 +153,8 @@ class BranchRepository {
       INNER JOIN roles r ON r.id = u.role_id
       WHERE e.branch_id = $1 
       AND r.name = 'BRANCH_MANAGER'
+      AND e.is_active = true
+      ORDER BY e.created_at ASC
       LIMIT 1
     `;
     const { rows } = await db.query(sql, [branch_id]);

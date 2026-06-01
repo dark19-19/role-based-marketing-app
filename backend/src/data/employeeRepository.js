@@ -507,6 +507,7 @@ ORDER BY name
       WHERE e.branch_id = $1
       AND r.name = 'BRANCH_MANAGER'
       AND e.is_active = true
+      ORDER BY e.created_at ASC
       LIMIT 1
     `,
         [branchId]

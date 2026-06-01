@@ -64,25 +64,24 @@ class OrderCommentService {
       const title = "تعليق جديد على الطلب";
       const message = `قام ${commenterName} بإضافة تعليق على الطلب: ${content.substring(0, 50)}${content.length > 50 ? "..." : ""}`;
 
-      if (commenterRole === "MARKETER") {
-        // Notify Branch Manager
-        const branchManagerUserId = await employeeRepository.getBranchManagerUserId(order.branch_id);
-        if (branchManagerUserId) {
+      const branchManagerUserId = await employeeRepository.getBranchManagerUserId(order.branch_id);
+
+      if (commenterRole === "BRANCH_MANAGER") {
+        const orderOwnerEmployee = await employeeRepository.findById(order.marketer_id);
+        const targetUserId = orderOwnerEmployee?.user_id || null;
+        if (targetUserId && targetUserId !== user.id) {
+          await notificationHelper.notify(targetUserId, title, message);
+        }
+      } else {
+        if (branchManagerUserId && branchManagerUserId !== user.id) {
           await notificationHelper.notify(branchManagerUserId, title, message);
         }
-      } else if (
-        commenterRole === "BRANCH_MANAGER" ||
-        commenterRole === "SUPERVISOR" ||
-        commenterRole === "GENERAL_SUPERVISOR"
-      ) {
-        // Notify Marketer
-        const marketerEmployee = await employeeRepository.findById(order.marketer_id);
-        if (marketerEmployee && marketerEmployee.user_id) {
-          await notificationHelper.notify(marketerEmployee.user_id, title, message);
-        }
 
-        // If it's a supervisor commenting, also notify the branch manager? 
-        // For now, let's stick to the core requirement.
+        const marketerEmployee = await employeeRepository.findById(order.marketer_id);
+        const marketerUserId = marketerEmployee?.user_id || null;
+        if (marketerUserId && marketerUserId !== user.id && marketerUserId !== branchManagerUserId) {
+          await notificationHelper.notify(marketerUserId, title, message);
+        }
       }
     } catch (notifyErr) {
       console.error("[OrderCommentService] Notification error (ignored):", notifyErr.message);

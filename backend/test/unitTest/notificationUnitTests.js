@@ -4,6 +4,230 @@ const factories = require('../utils/factories');
 const dbUtils = require('../utils/dbUtils');
 
 describe('Notification unit tests', () => {
+  async function setupCatalog() {
+    const suffix = randomUUID().slice(0, 6);
+    const categoryId = await dbUtils.createCategoryDirect(`NotifCat_${suffix}`);
+    const productId = await dbUtils.createProductDirect({
+      name: `NotifProduct_${suffix}`,
+      categoryId,
+      price: 10,
+      quantity: 100,
+    });
+    await dbUtils.createCommissionDirect({ productId: null, company: 20, gs: 10, supervisor: 10 });
+    return { categoryId, productId };
+  }
+
+  async function getBranchGovernorateId(branchId) {
+    const db = require('../../src/helpers/DBHelper');
+    const { rows } = await db.query(`SELECT governorate_id FROM branches WHERE id = $1`, [branchId]);
+    return rows[0]?.governorate_id || null;
+  }
+
+  async function createCustomerViaMarketer({ marketerToken, governorateId, phone }) {
+    const res = await api.request(api.app)
+      .post('/api/customers')
+      .set(api.authHeader(marketerToken))
+      .send({
+        first_name: 'Cust',
+        last_name: 'Notif',
+        phone,
+        password: 'custpass123',
+        governorate_id: governorateId,
+      });
+    expect(res.status).toBe(200);
+    return { customerId: res.body.data.id };
+  }
+
+  async function getUnreadCount(token) {
+    const res = await api.request(api.app)
+      .get('/api/notifications/unread-count')
+      .set(api.authHeader(token));
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    return Number(res.body.data.count);
+  }
+
+  async function addOrderComment({ token, orderId, content }) {
+    const res = await api.request(api.app)
+      .post(`/api/orders/${orderId}/comments`)
+      .set(api.authHeader(token))
+      .send({ content });
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    return res.body.body;
+  }
+
+  async function createOrderAs({ token, customerId, branchId, productId, note }) {
+    const res = await api.request(api.app)
+      .post('/api/orders')
+      .set(api.authHeader(token))
+      .send({
+        customer_id: customerId,
+        branch_id: branchId,
+        sold_price: 10,
+        notes: note,
+        items: [{ product_id: productId, quantity: 1 }],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    return res.body.data.id;
+  }
+
+  test('comment notification exchange works for marketer/branch manager; repeats correctly on second comment', async () => {
+    const { productId } = await setupCatalog();
+
+    const adminLogin = await api.loginAdmin();
+    const adminToken = adminLogin.body.data.token;
+    const branchId = await factories.createBranch();
+    const chain = await factories.createStaffChain({
+      token: adminToken,
+      branchId,
+      phoneBase: 990080000,
+    });
+
+    const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
+    const bmLogin = await api.login({ phone: chain.branchManager.phone, password: chain.branchManager.password });
+
+    const governorateId = await getBranchGovernorateId(branchId);
+    const { customerId } = await createCustomerViaMarketer({
+      marketerToken: marketerLogin.body.data.token,
+      governorateId,
+      phone: '0998000010',
+    });
+
+    const bmBeforeOrder = await getUnreadCount(bmLogin.body.data.token);
+    const orderId = await createOrderAs({
+      token: marketerLogin.body.data.token,
+      customerId,
+      branchId,
+      productId,
+      note: 'Marketer order for notif test',
+    });
+    const bmAfterOrder = await getUnreadCount(bmLogin.body.data.token);
+    expect(bmAfterOrder).toBe(bmBeforeOrder + 1);
+
+    const bmBeforeC1 = await getUnreadCount(bmLogin.body.data.token);
+    await addOrderComment({ token: marketerLogin.body.data.token, orderId, content: 'MK comment 1' });
+    const bmAfterC1 = await getUnreadCount(bmLogin.body.data.token);
+    expect(bmAfterC1).toBe(bmBeforeC1 + 1);
+
+    const mkBeforeC2 = await getUnreadCount(marketerLogin.body.data.token);
+    await addOrderComment({ token: bmLogin.body.data.token, orderId, content: 'BM comment 1' });
+    const mkAfterC2 = await getUnreadCount(marketerLogin.body.data.token);
+    expect(mkAfterC2).toBe(mkBeforeC2 + 1);
+
+    const bmBeforeC3 = await getUnreadCount(bmLogin.body.data.token);
+    await addOrderComment({ token: marketerLogin.body.data.token, orderId, content: 'MK comment 2' });
+    const bmAfterC3 = await getUnreadCount(bmLogin.body.data.token);
+    expect(bmAfterC3).toBe(bmBeforeC3 + 1);
+
+    console.log('[NotificationScenario] MARKETER <-> BRANCH_MANAGER: OK');
+  });
+
+  test('comment notification exchange works for supervisor/branch manager (order created by supervisor)', async () => {
+    const { productId } = await setupCatalog();
+
+    const adminLogin = await api.loginAdmin();
+    const adminToken = adminLogin.body.data.token;
+    const branchId = await factories.createBranch();
+    const chain = await factories.createStaffChain({
+      token: adminToken,
+      branchId,
+      phoneBase: 990081000,
+    });
+
+    const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
+    const supervisorLogin = await api.login({ phone: chain.supervisor.phone, password: chain.supervisor.password });
+    const bmLogin = await api.login({ phone: chain.branchManager.phone, password: chain.branchManager.password });
+
+    const governorateId = await getBranchGovernorateId(branchId);
+    const { customerId } = await createCustomerViaMarketer({
+      marketerToken: marketerLogin.body.data.token,
+      governorateId,
+      phone: '0998000020',
+    });
+
+    const bmBeforeOrder = await getUnreadCount(bmLogin.body.data.token);
+    const orderId = await createOrderAs({
+      token: supervisorLogin.body.data.token,
+      customerId,
+      branchId,
+      productId,
+      note: 'Supervisor order for notif test',
+    });
+    const bmAfterOrder = await getUnreadCount(bmLogin.body.data.token);
+    expect(bmAfterOrder).toBe(bmBeforeOrder + 1);
+
+    const bmBeforeC1 = await getUnreadCount(bmLogin.body.data.token);
+    await addOrderComment({ token: supervisorLogin.body.data.token, orderId, content: 'SV comment 1' });
+    const bmAfterC1 = await getUnreadCount(bmLogin.body.data.token);
+    expect(bmAfterC1).toBe(bmBeforeC1 + 1);
+
+    const svBeforeC2 = await getUnreadCount(supervisorLogin.body.data.token);
+    await addOrderComment({ token: bmLogin.body.data.token, orderId, content: 'BM comment 1' });
+    const svAfterC2 = await getUnreadCount(supervisorLogin.body.data.token);
+    expect(svAfterC2).toBe(svBeforeC2 + 1);
+
+    const bmBeforeC3 = await getUnreadCount(bmLogin.body.data.token);
+    await addOrderComment({ token: supervisorLogin.body.data.token, orderId, content: 'SV comment 2' });
+    const bmAfterC3 = await getUnreadCount(bmLogin.body.data.token);
+    expect(bmAfterC3).toBe(bmBeforeC3 + 1);
+
+    console.log('[NotificationScenario] SUPERVISOR <-> BRANCH_MANAGER: OK');
+  });
+
+  test('comment notification exchange works for general supervisor/branch manager (order created by general supervisor)', async () => {
+    const { productId } = await setupCatalog();
+
+    const adminLogin = await api.loginAdmin();
+    const adminToken = adminLogin.body.data.token;
+    const branchId = await factories.createBranch();
+    const chain = await factories.createStaffChain({
+      token: adminToken,
+      branchId,
+      phoneBase: 990082000,
+    });
+
+    const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
+    const gsLogin = await api.login({ phone: chain.generalSupervisor.phone, password: chain.generalSupervisor.password });
+    const bmLogin = await api.login({ phone: chain.branchManager.phone, password: chain.branchManager.password });
+
+    const governorateId = await getBranchGovernorateId(branchId);
+    const { customerId } = await createCustomerViaMarketer({
+      marketerToken: marketerLogin.body.data.token,
+      governorateId,
+      phone: '0998000030',
+    });
+
+    const bmBeforeOrder = await getUnreadCount(bmLogin.body.data.token);
+    const orderId = await createOrderAs({
+      token: gsLogin.body.data.token,
+      customerId,
+      branchId,
+      productId,
+      note: 'GS order for notif test',
+    });
+    const bmAfterOrder = await getUnreadCount(bmLogin.body.data.token);
+    expect(bmAfterOrder).toBe(bmBeforeOrder + 1);
+
+    const bmBeforeC1 = await getUnreadCount(bmLogin.body.data.token);
+    await addOrderComment({ token: gsLogin.body.data.token, orderId, content: 'GS comment 1' });
+    const bmAfterC1 = await getUnreadCount(bmLogin.body.data.token);
+    expect(bmAfterC1).toBe(bmBeforeC1 + 1);
+
+    const gsBeforeC2 = await getUnreadCount(gsLogin.body.data.token);
+    await addOrderComment({ token: bmLogin.body.data.token, orderId, content: 'BM comment 1' });
+    const gsAfterC2 = await getUnreadCount(gsLogin.body.data.token);
+    expect(gsAfterC2).toBe(gsBeforeC2 + 1);
+
+    const bmBeforeC3 = await getUnreadCount(bmLogin.body.data.token);
+    await addOrderComment({ token: gsLogin.body.data.token, orderId, content: 'GS comment 2' });
+    const bmAfterC3 = await getUnreadCount(bmLogin.body.data.token);
+    expect(bmAfterC3).toBe(bmBeforeC3 + 1);
+
+    console.log('[NotificationScenario] GENERAL_SUPERVISOR <-> BRANCH_MANAGER: OK');
+  });
+
   test('user can list his notifications paginated', async () => {
     const adminLogin = await api.loginAdmin();
     const adminToken = adminLogin.body.data.token;
