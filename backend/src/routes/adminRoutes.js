@@ -46,4 +46,18 @@ router.patch(
   adminController.resetUserPassword,
 );
 
+router.get(
+  "/admin/uploads/verify",
+  authMiddleware,
+  roleMiddleware(["ADMIN"]),
+  adminController.verifyUploadsStorage,
+);
+
+router.post(
+  "/admin/uploads/migrate",
+  authMiddleware,
+  roleMiddleware(["ADMIN"]),
+  adminController.migrateUploadsStorage,
+);
+
 module.exports = router;

@@ -93,6 +93,24 @@ function parseProductsListCacheTtlSeconds() {
   return ttl;
 }
 
+function parseTrustProxy() {
+  const raw = optionalEnv('TRUST_PROXY', '');
+  if (raw === '') {
+    return process.env.NODE_ENV === 'production' ? 1 : false;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+
+  const numeric = Number.parseInt(raw, 10);
+  if (!Number.isNaN(numeric)) {
+    return numeric;
+  }
+
+  return raw;
+}
+
 function parseServerHardening() {
   const headersTimeoutMs = parseOptionalIntEnv('SERVER_HEADERS_TIMEOUT_MS', 6000);
   const requestTimeoutMs = parseOptionalIntEnv('SERVER_REQUEST_TIMEOUT_MS', 30000);
@@ -156,6 +174,7 @@ const config = {
   databaseUrl: requiredEnv('DATABASE_URL'),
   jwtSecret: requiredEnv('JWT_SECRET'),
   encryptionKey: parseEncryptionKey(),
+  trustProxy: parseTrustProxy(),
   notificationsCleanupHour: parseNotificationCleanupHour(),
   notificationsMaxCount: parseNotificationMaxCount(),
   notificationsHardDeleteAfterDays: parseNotificationsHardDeleteAfterDays(),

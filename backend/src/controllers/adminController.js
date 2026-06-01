@@ -1,5 +1,44 @@
 const adminService = require("../services/adminService");
 const employeeService = require("../services/employeeService");
+const fs = require("fs");
+const path = require("path");
+const {
+  getDefaultLocalUploadsRoot,
+  getConfiguredUploadsRoot,
+} = require("../utils/uploadPaths");
+const { migrateUploadsToConfiguredPath } = require("../utils/uploadsMigration");
+
+function listFilesRecursive(directoryPath, basePath = directoryPath) {
+  if (!fs.existsSync(directoryPath)) {
+    return [];
+  }
+
+  const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(directoryPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listFilesRecursive(fullPath, basePath));
+    } else if (entry.isFile()) {
+      files.push(path.relative(basePath, fullPath).replace(/\\/g, "/"));
+    }
+  }
+
+  return files.sort();
+}
+
+function buildUploadsDirectoryReport(directoryPath) {
+  const exists = fs.existsSync(directoryPath);
+  const files = exists ? listFilesRecursive(directoryPath) : [];
+
+  return {
+    path: directoryPath,
+    exists,
+    filesCount: files.length,
+    files,
+  };
+}
 
 class AdminController {
   registerAdmin = async (req, res) => {
@@ -88,6 +127,47 @@ class AdminController {
         newPassword,
       });
       res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  };
+
+  verifyUploadsStorage = async (_req, res) => {
+    try {
+      const legacyUploadsPath = getDefaultLocalUploadsRoot();
+      const activeUploadsPath = getConfiguredUploadsRoot();
+
+      const legacyReport = buildUploadsDirectoryReport(legacyUploadsPath);
+      const activeReport = buildUploadsDirectoryReport(activeUploadsPath);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          isUsingCustomUploadsPath: path.resolve(legacyUploadsPath) !== path.resolve(activeUploadsPath),
+          legacyUploads: legacyReport,
+          activeUploads: activeReport,
+        },
+      });
+    } catch (err) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  };
+
+  migrateUploadsStorage = async (_req, res) => {
+    try {
+      const migration = migrateUploadsToConfiguredPath();
+      const legacyUploadsPath = getDefaultLocalUploadsRoot();
+      const activeUploadsPath = getConfiguredUploadsRoot();
+
+      res.status(200).json({
+        success: true,
+        data: {
+          migration,
+          isUsingCustomUploadsPath: path.resolve(legacyUploadsPath) !== path.resolve(activeUploadsPath),
+          legacyUploads: buildUploadsDirectoryReport(legacyUploadsPath),
+          activeUploads: buildUploadsDirectoryReport(activeUploadsPath),
+        },
+      });
     } catch (err) {
       res.status(400).json({ success: false, error: err.message });
     }

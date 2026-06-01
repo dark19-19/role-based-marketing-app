@@ -1,8 +1,12 @@
 const multer = require("multer");
 const sharp = require("sharp");
 const path = require("path");
-const fs = require("fs");
 const { randomUUID } = require("crypto");
+const {
+  getUploadsDirectory,
+  getUploadPublicPath,
+  ensureDirectoryExists,
+} = require("../utils/uploadPaths");
 
 // إعداد تخزين multer مؤقت
 const storage = multer.memoryStorage();
@@ -34,14 +38,11 @@ const processImage = async (req, res, next) => {
 
     const imageId = randomUUID();
     const filename = `${imageId}.webp`; // تحويل إلى webp للضغط
-    const baseUploadsDir = process.env.NODE_ENV === 'test' ? 'uploads/test_photos' : 'uploads';
-    const uploadPath = path.join(__dirname, "../../", baseUploadsDir, filename);
+    const uploadsDir = getUploadsDirectory();
+    const uploadPath = path.join(uploadsDir, filename);
 
     // التأكد من وجود المجلد (للاحتياط)
-    const uploadsDir = path.dirname(uploadPath);
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
+    ensureDirectoryExists(uploadsDir);
 
     console.log(`Processing image: ${req.file.originalname} -> ${uploadPath}`);
 
@@ -56,7 +57,7 @@ const processImage = async (req, res, next) => {
       .toFile(uploadPath);
 
     // تخزين المسار النسبي في req
-    req.imagePath = `/${baseUploadsDir}/${filename}`;
+    req.imagePath = getUploadPublicPath(filename);
     console.log(`Image processed successfully: ${req.imagePath}`);
     next();
   } catch (err) {

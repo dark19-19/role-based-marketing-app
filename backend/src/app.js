@@ -1,11 +1,15 @@
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
-const fs = require("fs");
 const routes = require("./routes");
 const rateLimiter = require("./middleware/rateLimiter");
+const config = require("./config");
+const {
+  getConfiguredUploadsRoot,
+  ensureDirectoryExists,
+} = require("./utils/uploadPaths");
 
 const app = express();
+app.set("trust proxy", config.trustProxy);
 
 // TEMPORARY: For testing 5xx error screen
 // app.use((req, res, next) => {
@@ -18,12 +22,10 @@ const app = express();
 //   next();
 // });
 
-const uploadsDir = path.join(__dirname, "..", "uploads"); 
-
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log(" مجلد uploads تم إنشاؤه في:", uploadsDir);
-}
+const uploadsDir = getConfiguredUploadsRoot();
+ensureDirectoryExists(uploadsDir);
+console.log("Uploads directory:", uploadsDir);
+console.log("Trust proxy:", config.trustProxy);
 
 // خدمة الصور
 app.use("/uploads", express.static(uploadsDir));
