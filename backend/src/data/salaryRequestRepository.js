@@ -3,18 +3,29 @@ const { randomUUID } = require('crypto');
 
 class SalaryRequestRepository {
 
-    async create(client, employeeId, amount) {
+    async create(client, employeeId, amount, details = {}) {
+
+        const { full_name, phone_number, address, payment_method, note } = details || {};
+        const safeFullName = full_name ?? 'empty';
+        const safePhoneNumber = phone_number ?? 'empty';
+        const safeAddress = address ?? 'empty';
+        const safePaymentMethod = payment_method ?? 'empty';
 
         const { rows } = await client.query(`
     INSERT INTO salary_requests (
       id,
       employee_id,
       requested_amount,
-      status
+      status,
+      full_name,
+      phone_number,
+      address,
+      payment_method,
+      note
     )
-    VALUES (gen_random_uuid(), $1, $2, 'PENDING')
+    VALUES (gen_random_uuid(), $1, $2, 'PENDING', $3, $4, $5, $6, $7)
     RETURNING *
-  `,[employeeId, amount]);
+  `,[employeeId, amount, safeFullName, safePhoneNumber, safeAddress, safePaymentMethod, note ?? null]);
 
         return rows[0];
 
@@ -110,7 +121,7 @@ class SalaryRequestRepository {
         );
     }
 
-    async listPaginated({ limit, offset, role, employeeId, branchId, status }) {
+    async listPaginated({ limit, offset, role, employeeId, branchId, status, paymentMethod }) {
 
         let conditions = [];
         let values = [];
@@ -119,6 +130,11 @@ class SalaryRequestRepository {
         if (status && status !== 'ALL') {
              conditions.push(`sr.status = $${idx++}`);
              values.push(status);
+        }
+
+        if (paymentMethod && paymentMethod !== 'ALL') {
+            conditions.push(`sr.payment_method = $${idx++}`);
+            values.push(paymentMethod);
         }
 
         if (role === 'MARKETER' || role === 'SUPERVISOR' || role === 'GENERAL_SUPERVISOR') {
@@ -140,6 +156,10 @@ class SalaryRequestRepository {
       sr.requested_amount AS amount,
       sr.status,
       sr.created_at AS requestDate,
+      sr.full_name,
+      sr.phone_number,
+      sr.address,
+      sr.payment_method,
 
       u.first_name || ' ' || u.last_name AS employeeName,
       u.phone,
@@ -200,6 +220,11 @@ class SalaryRequestRepository {
       sr.requested_amount AS amount,
       sr.status,
       sr.created_at AS requestDate,
+      sr.full_name,
+      sr.phone_number,
+      sr.address,
+      sr.payment_method,
+      sr.note,
 
       u.first_name || ' ' || u.last_name AS employeeName,
       u.phone,

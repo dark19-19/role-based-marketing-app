@@ -59,12 +59,14 @@ class SalaryRequestController {
             const page = Number(req.query.page) || 1;
             const limit = Number(req.query.limit) || 20;
             const status = req.query.status;
+            const payment_method = req.query.payment_method;
 
             const result = await salaryService.listPaginated(
                 req.user,
                 page,
                 limit,
-                status
+                status,
+                payment_method
             );
 
             res.json({
@@ -85,7 +87,7 @@ class SalaryRequestController {
 
     async create(req, res) {
         try {
-            const result = await salaryService.createSalaryRequest(req.user)
+            const result = await salaryService.createSalaryRequest(req.user, req.body)
             res.status(201).json({
                 success: true,
                 data: result

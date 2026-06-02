@@ -2,6 +2,7 @@ const db = require('../helpers/DBHelper');
 const salaryRepo = require('../data/salaryRequestRepository');
 const TYPES = require('../utils/walletTransactionTypes');
 const STATUS = require('../utils/salaryRequestStatus');
+const PAYMENT_METHODS = require('../utils/salaryRequestPaymentMethods');
 const employeeRepo = require('../data/employeeRepository');
 const adminRepo = require('../data/adminRepository');
 const branchRepo = require('../data/branchRepository');
@@ -9,10 +10,12 @@ const notificationHelper = require("../helpers/notificationHelper");
 
 class SalaryRequestService {
 
-    async createSalaryRequest(user) {
+    async createSalaryRequest(user, payload = {}) {
         return db.runInTransaction(async (client) => {
             const employee = await employeeRepo.findByUserId(user.id);
             if (!employee) throw new Error('Employee record not found');
+
+            const details = this._validateAndNormalizeSalaryRequestDetails(payload);
 
             const transactions = await salaryRepo.getEmployeeBalanceTransactions(employee.id);
             
@@ -29,7 +32,7 @@ class SalaryRequestService {
                throw new Error('Calculated withdrawal amount must be greater than 0');
             }
 
-            const request = await salaryRepo.create(client, employee.id, totalAmount);
+            const request = await salaryRepo.create(client, employee.id, totalAmount, details);
             const ids = transactions.map(t => t.id);
 
             await salaryRepo.attachTransactions(client, request.id, ids);
@@ -52,6 +55,28 @@ class SalaryRequestService {
 
             return request;
         });
+    }
+
+    _validateAndNormalizeSalaryRequestDetails(payload) {
+        const raw = payload || {};
+
+        const full_name = String(raw.full_name || '').trim();
+        const phone_number = String(raw.phone_number || '').trim();
+        const address = String(raw.address || '').trim();
+        const payment_method = String(raw.payment_method || '').trim();
+        const note = raw.note === undefined || raw.note === null ? null : String(raw.note);
+
+        if (!full_name) throw new Error('الاسم  الكامل مطلوب');
+        if (!phone_number) throw new Error('الرقم الموبايل مطلوب');
+        if (!address) throw new Error('العنوان مطلوب');
+        if (!payment_method) throw new Error('الريقة الدفع مطلوبة');
+
+        const allowed = new Set(Object.values(PAYMENT_METHODS));
+        if (!allowed.has(payment_method)) {
+            throw new Error(`طريقة دفع غير صالحة: ${payment_method}`);
+        }
+
+        return { full_name, phone_number, address, payment_method, note };
     }
 
     async getRequestDetails(requestId) {
@@ -133,9 +158,16 @@ class SalaryRequestService {
         });
     }
 
-    async listPaginated(user, page = 1, limit = 20, status = null) {
+    async listPaginated(user, page = 1, limit = 20, status = null, paymentMethod = null) {
         const offset = (page - 1) * limit;
         const employee = await employeeRepo.findByUserId(user.id);
+
+        if (paymentMethod && paymentMethod !== 'ALL') {
+            const allowed = new Set(Object.values(PAYMENT_METHODS));
+            if (!allowed.has(String(paymentMethod))) {
+                throw new Error(`Invalid payment_method: ${paymentMethod}`);
+            }
+        }
 
         const result = await salaryRepo.listPaginated({
             limit,
@@ -143,7 +175,8 @@ class SalaryRequestService {
             role: user.role,
             employeeId: employee ? employee.id : null,
             branchId: employee ? employee.branch_id : null,
-            status
+            status,
+            paymentMethod
         });
 
         return {

@@ -1,0 +1,8 @@
+const PAYMENT_METHODS = {
+  SHAM_CASH: 'SHAM_CASH',
+  AL_FOAD: 'AL_FOAD',
+  HARAM: 'HARAM',
+};
+
+module.exports = PAYMENT_METHODS;
+

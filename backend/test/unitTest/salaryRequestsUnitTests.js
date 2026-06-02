@@ -9,6 +9,16 @@ describe('Salary requests unit tests', () => {
     return await api.getAdminToken();
   }
 
+  function buildValidDetails(seed) {
+    return {
+      full_name: `Full Name ${seed}`,
+      phone_number: `09${String(90000000 + (seed % 90000000)).padStart(8, '0')}`,
+      address: `Address ${seed}`,
+      payment_method: 'SHAM_CASH',
+      note: `Note ${seed}`,
+    };
+  }
+
   async function setupBranchAndChain() {
     const adminLogin = await api.loginAdmin();
     const adminToken = adminLogin.body.data.token;
@@ -48,7 +58,11 @@ describe('Salary requests unit tests', () => {
   }
 
   async function createSalaryRequest(token) {
-    return await api.request(api.app).post('/api/salary-requests').set(api.authHeader(token));
+    const details = buildValidDetails(Date.now());
+    return await api.request(api.app)
+      .post('/api/salary-requests')
+      .set(api.authHeader(token))
+      .send(details);
   }
 
   async function listSalaryRequests(token, query = '') {
@@ -87,11 +101,19 @@ describe('Salary requests unit tests', () => {
     const b = await setupBranchAndChain();
 
     await dbUtils.createWalletTransactionDirect({ employeeId: a.chain.marketer.employeeId, amount: 10 });
-    const reqA = await createSalaryRequest(a.tokens.marketer);
+    const payloadA = buildValidDetails(Date.now());
+    const reqA = await api.request(api.app)
+      .post('/api/salary-requests')
+      .set(api.authHeader(a.tokens.marketer))
+      .send(payloadA);
     expect(reqA.status).toBe(201);
 
     await dbUtils.createWalletTransactionDirect({ employeeId: b.chain.marketer.employeeId, amount: 20 });
-    const reqB = await createSalaryRequest(b.tokens.marketer);
+    const payloadB = buildValidDetails(Date.now() + 1);
+    const reqB = await api.request(api.app)
+      .post('/api/salary-requests')
+      .set(api.authHeader(b.tokens.marketer))
+      .send(payloadB);
     expect(reqB.status).toBe(201);
 
     const listRes = await listSalaryRequests(await freshAdminToken(), '?page=1&limit=50');
@@ -101,6 +123,39 @@ describe('Salary requests unit tests', () => {
 
     const ids = listRes.body.data.data.map((r) => r.id);
     expect(ids).toEqual(expect.arrayContaining([reqA.body.data.id, reqB.body.data.id]));
+
+    const foundA = listRes.body.data.data.find((r) => r.id === reqA.body.data.id);
+    expect(foundA.full_name).toBe(payloadA.full_name);
+    expect(foundA.phone_number).toBe(payloadA.phone_number);
+    expect(foundA.address).toBe(payloadA.address);
+    expect(foundA.payment_method).toBe(payloadA.payment_method);
+  });
+
+  test('admin can filter salary requests by payment method', async () => {
+    const setup = await setupBranchAndChain();
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.supervisor.employeeId, amount: 12 });
+
+    const p1 = { ...buildValidDetails(Date.now()), payment_method: 'SHAM_CASH' };
+    const r1 = await api.request(api.app)
+      .post('/api/salary-requests')
+      .set(api.authHeader(setup.tokens.marketer))
+      .send(p1);
+    expect(r1.status).toBe(201);
+
+    const p2 = { ...buildValidDetails(Date.now() + 1), payment_method: 'AL_FOAD' };
+    const r2 = await api.request(api.app)
+      .post('/api/salary-requests')
+      .set(api.authHeader(setup.tokens.supervisor))
+      .send(p2);
+    expect(r2.status).toBe(201);
+
+    const res = await listSalaryRequests(await freshAdminToken(), '?page=1&limit=50&payment_method=SHAM_CASH');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    const ids = res.body.data.data.map((x) => x.id);
+    expect(ids).toEqual(expect.arrayContaining([r1.body.data.id]));
+    expect(ids).not.toEqual(expect.arrayContaining([r2.body.data.id]));
   });
 
   test('branch manager can show salary made by employees in his branch', async () => {
@@ -161,6 +216,64 @@ describe('Salary requests unit tests', () => {
     const res = await createSalaryRequest(setup.tokens.marketer);
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
+  });
+
+  test('employee fails to create salary request due to empty required fields', async () => {
+    const setup = await setupBranchAndChain();
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
+
+    const res = await api.request(api.app)
+      .post('/api/salary-requests')
+      .set(api.authHeader(setup.tokens.marketer))
+      .send({
+        full_name: '',
+        phone_number: '',
+        address: '',
+        payment_method: '',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('employee fails to create salary request due to invalid payment method', async () => {
+    const setup = await setupBranchAndChain();
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
+
+    const res = await api.request(api.app)
+      .post('/api/salary-requests')
+      .set(api.authHeader(setup.tokens.marketer))
+      .send({
+        ...buildValidDetails(Date.now()),
+        payment_method: 'INVALID_METHOD',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('employee can see attached details for his salary request', async () => {
+    const setup = await setupBranchAndChain();
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
+
+    const details = buildValidDetails(Date.now());
+    const created = await api.request(api.app)
+      .post('/api/salary-requests')
+      .set(api.authHeader(setup.tokens.marketer))
+      .send(details);
+
+    expect(created.status).toBe(201);
+    expect(created.body.success).toBe(true);
+
+    const id = created.body.data.id;
+    const got = await getSalaryRequestDetails(setup.tokens.marketer, id);
+    expect(got.status).toBe(200);
+    expect(got.body.success).toBe(true);
+    expect(got.body.data.full_name).toBe(details.full_name);
+    expect(got.body.data.phone_number).toBe(details.phone_number);
+    expect(got.body.data.address).toBe(details.address);
+    expect(got.body.data.payment_method).toBe(details.payment_method);
+    expect(got.body.data.note).toBe(details.note);
   });
 
   test('admin and branch manager can approve salary requests', async () => {
@@ -294,17 +407,31 @@ describe('Salary requests unit tests', () => {
     const setup = await setupBranchAndChain();
 
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
-    const created = await createSalaryRequest(setup.tokens.marketer);
+    const detailsPayload = buildValidDetails(Date.now());
+    const created = await api.request(api.app)
+      .post('/api/salary-requests')
+      .set(api.authHeader(setup.tokens.marketer))
+      .send(detailsPayload);
     const id = created.body.data.id;
 
     const asAdmin = await getSalaryRequestDetails(await freshAdminToken(), id);
     expect(asAdmin.status).toBe(200);
     expect(asAdmin.body.success).toBe(true);
     expect(Array.isArray(asAdmin.body.data.transactions)).toBe(true);
+    expect(asAdmin.body.data.full_name).toBe(detailsPayload.full_name);
+    expect(asAdmin.body.data.phone_number).toBe(detailsPayload.phone_number);
+    expect(asAdmin.body.data.address).toBe(detailsPayload.address);
+    expect(asAdmin.body.data.payment_method).toBe(detailsPayload.payment_method);
+    expect(asAdmin.body.data.note).toBe(detailsPayload.note);
 
     const asBM = await getSalaryRequestDetails(setup.tokens.branchManager, id);
     expect(asBM.status).toBe(200);
     expect(asBM.body.success).toBe(true);
     expect(Array.isArray(asBM.body.data.transactions)).toBe(true);
+    expect(asBM.body.data.full_name).toBe(detailsPayload.full_name);
+    expect(asBM.body.data.phone_number).toBe(detailsPayload.phone_number);
+    expect(asBM.body.data.address).toBe(detailsPayload.address);
+    expect(asBM.body.data.payment_method).toBe(detailsPayload.payment_method);
+    expect(asBM.body.data.note).toBe(detailsPayload.note);
   });
 });
