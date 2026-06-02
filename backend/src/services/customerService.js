@@ -58,18 +58,13 @@ class CustomerService {
         const page = parseInt(query.page) || 1;
         const limit = parseInt(query.limit) || 20;
 
-        // Get employee ID for role-based filtering
-        let employeeId = null;
-        if (user.role !== 'ADMIN') {
-            const employee = await employeeRepository.findByUserId(user.id);
-            employeeId = employee ? employee.id : null;
-        }
-
+        // All roles see all customers (needed for checkout customer selection)
+        // Only /customers/my endpoint filters by current user
         const result = await customerRepository.listPaginated({
             page,
             limit,
             search: query.search || null,
-            employeeId,
+            employeeId: null, // No filtering by employee for the main list
             role: user.role,
             userId: user.id
         });
@@ -86,6 +81,46 @@ class CustomerService {
             }
         };
 
+    }
+
+    async listMyCustomers(user, query) {
+        const page = parseInt(query.page) || 1;
+        const limit = parseInt(query.limit) || 20;
+
+        // Get employee ID for the current user
+        const employee = await employeeRepository.findByUserId(user.id);
+        if (!employee) {
+            return {
+                data: [],
+                pagination: {
+                    total: 0,
+                    page,
+                    limit,
+                    pages: 0
+                }
+            };
+        }
+
+        const result = await customerRepository.listPaginated({
+            page,
+            limit,
+            search: query.search || null,
+            employeeId: employee.id, // Filter by current user's employee ID
+            role: user.role,
+            userId: user.id
+        });
+
+        const pages = Math.ceil(result.total / limit);
+
+        return {
+            data: result.data,
+            pagination: {
+                total: result.total,
+                page,
+                limit,
+                pages
+            }
+        };
     }
 
     async getById(customerId) {

@@ -22,6 +22,13 @@ router.get(
 );
 
 router.get(
+  "/customers/my",
+  authMiddleware,
+  requireRole(["MARKETER", "SUPERVISOR", "GENERAL_SUPERVISOR"]),
+  customerController.listMy,
+);
+
+router.get(
     '/customers/:id',
     authMiddleware,
     requireRole(['ADMIN', 'GENERAL_SUPERVISOR', 'SUPERVISOR', 'MARKETER', 'BRANCH_MANAGER']),

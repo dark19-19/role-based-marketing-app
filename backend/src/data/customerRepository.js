@@ -27,7 +27,7 @@ class CustomerRepository {
 
     }
 
-    async listPaginated({ page = 1, limit = 20, search = null}) {
+    async listPaginated({ page = 1, limit = 20, search = null, employeeId = null, role = null, userId = null }) {
 
         const offset = (page - 1) * limit;
 
@@ -42,7 +42,13 @@ class CustomerRepository {
             params.push(`%${search}%`);
             paramIndex++;
         }
-        // ADMIN and BRANCH_MANAGER see all active customers (no additional filter)
+
+        // Filter by employee who created the customer (for "my customers" feature)
+        if (employeeId) {
+            whereConditions.push(`c.referred_by = $${paramIndex}`);
+            params.push(employeeId);
+            paramIndex++;
+        }
 
         const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 

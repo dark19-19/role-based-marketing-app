@@ -60,6 +60,24 @@ class CustomerController {
 
     }
 
+    async listMy(req, res) {
+        try {
+            const result = await customerService.listMyCustomers(req.user, req.query);
+
+            return res.json({
+                success: true,
+                data: result
+            });
+        } catch (err) {
+            console.error(err);
+
+            return res.status(500).json({
+                success: false,
+                message: 'Server error'
+            });
+        }
+    }
+
     async getById(req, res) {
 
         try {
