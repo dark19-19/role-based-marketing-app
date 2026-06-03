@@ -64,7 +64,8 @@ class OrderCommentService {
       const title = "تعليق جديد على الطلب";
       const message = `قام ${commenterName} بإضافة تعليق على الطلب: ${content.substring(0, 50)}${content.length > 50 ? "..." : ""}`;
 
-      const branchManagerUserId = await employeeRepository.getBranchManagerUserId(order.branch_id);
+      const branchManagerUserIds = await employeeRepository.getBranchManagerUserIds(order.branch_id);
+      const branchManagersToNotify = branchManagerUserIds.filter((id) => id && id !== user.id);
 
       if (commenterRole === "BRANCH_MANAGER") {
         const orderOwnerEmployee = await employeeRepository.findById(order.marketer_id);
@@ -73,13 +74,13 @@ class OrderCommentService {
           await notificationHelper.notify(targetUserId, title, message);
         }
       } else {
-        if (branchManagerUserId && branchManagerUserId !== user.id) {
-          await notificationHelper.notify(branchManagerUserId, title, message);
+        if (branchManagersToNotify.length > 0) {
+          await notificationHelper.notifyMany(branchManagersToNotify, title, message);
         }
 
         const marketerEmployee = await employeeRepository.findById(order.marketer_id);
         const marketerUserId = marketerEmployee?.user_id || null;
-        if (marketerUserId && marketerUserId !== user.id && marketerUserId !== branchManagerUserId) {
+        if (marketerUserId && marketerUserId !== user.id && !branchManagerUserIds.includes(marketerUserId)) {
           await notificationHelper.notify(marketerUserId, title, message);
         }
       }

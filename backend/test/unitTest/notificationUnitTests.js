@@ -228,6 +228,72 @@ describe('Notification unit tests', () => {
     console.log('[NotificationScenario] GENERAL_SUPERVISOR <-> BRANCH_MANAGER: OK');
   });
 
+  test('all branch managers in the branch get notified when marketer/supervisor/general supervisor adds a comment', async () => {
+    const { productId } = await setupCatalog();
+
+    const adminLogin = await api.loginAdmin();
+    const adminToken = adminLogin.body.data.token;
+    const branchId = await factories.createBranch();
+    const chain = await factories.createStaffChain({
+      token: adminToken,
+      branchId,
+      phoneBase: 990083000,
+    });
+
+    const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
+    const supervisorLogin = await api.login({ phone: chain.supervisor.phone, password: chain.supervisor.password });
+    const gsLogin = await api.login({ phone: chain.generalSupervisor.phone, password: chain.generalSupervisor.password });
+    const bm1Login = await api.login({ phone: chain.branchManager.phone, password: chain.branchManager.password });
+
+    const bm2Phone = '0998000099';
+    const bm2Password = 'pass12345';
+    const createBm2 = await factories.adminCreateUser(adminToken, {
+      first_name: 'BM',
+      last_name: `Two_${randomUUID().slice(0, 6)}`,
+      phone: bm2Phone,
+      password: bm2Password,
+      role: 'BRANCH_MANAGER',
+      branch_id: branchId,
+    });
+    expect(createBm2.status).toBe(200);
+
+    const bm2Login = await api.login({ phone: bm2Phone, password: bm2Password });
+
+    const governorateId = await getBranchGovernorateId(branchId);
+    const { customerId } = await createCustomerViaMarketer({
+      marketerToken: marketerLogin.body.data.token,
+      governorateId,
+      phone: '0998000040',
+    });
+
+    const orderId = await createOrderAs({
+      token: marketerLogin.body.data.token,
+      customerId,
+      branchId,
+      productId,
+      note: 'Multi-BM comment notifications test',
+    });
+
+    const actors = [
+      { name: 'MARKETER', token: marketerLogin.body.data.token, content: 'MK says hi' },
+      { name: 'SUPERVISOR', token: supervisorLogin.body.data.token, content: 'SV says hi' },
+      { name: 'GENERAL_SUPERVISOR', token: gsLogin.body.data.token, content: 'GS says hi' },
+    ];
+
+    for (const a of actors) {
+      const bm1Before = await getUnreadCount(bm1Login.body.data.token);
+      const bm2Before = await getUnreadCount(bm2Login.body.data.token);
+
+      await addOrderComment({ token: a.token, orderId, content: a.content });
+
+      const bm1After = await getUnreadCount(bm1Login.body.data.token);
+      const bm2After = await getUnreadCount(bm2Login.body.data.token);
+
+      expect(bm1After).toBe(bm1Before + 1);
+      expect(bm2After).toBe(bm2Before + 1);
+    }
+  });
+
   test('user can list his notifications paginated', async () => {
     const adminLogin = await api.loginAdmin();
     const adminToken = adminLogin.body.data.token;

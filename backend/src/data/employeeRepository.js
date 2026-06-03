@@ -515,6 +515,24 @@ ORDER BY name
     return rows[0]?.user_id || null;
   }
 
+  async getBranchManagerUserIds(branchId) {
+    const { rows } = await db.query(
+      `
+      SELECT u.id as user_id
+      FROM employees e
+      INNER JOIN users u ON e.user_id = u.id
+      INNER JOIN roles r ON r.id = u.role_id
+      WHERE e.branch_id = $1
+      AND r.name = 'BRANCH_MANAGER'
+      AND e.is_active = true
+      ORDER BY e.created_at ASC
+    `,
+      [branchId],
+    );
+
+    return rows.map((r) => r.user_id).filter(Boolean);
+  }
+
   async getSubordinates(employeeId) {
     const { rows } = await db.query(
         `
