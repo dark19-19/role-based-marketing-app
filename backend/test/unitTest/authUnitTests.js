@@ -1,5 +1,6 @@
 const api = require('../utils/apiUtils');
 const factories = require('../utils/factories');
+const db = require('../../src/helpers/DBHelper');
 
 describe('Auth unit tests', () => {
   test('admin can login successfully', async () => {
@@ -85,6 +86,60 @@ describe('Auth unit tests', () => {
     });
     expect(relogin.status).toBe(200);
     expect(relogin.body.success).toBe(true);
+  });
+
+  test('customer register can claim an internal customer record (same phone, user_id was null)', async () => {
+    const adminLogin = await api.loginAdmin();
+    const adminToken = adminLogin.body.data.token;
+
+    const branchId = await factories.createBranch();
+    const chain = await factories.createStaffChain({
+      token: adminToken,
+      branchId,
+      phoneBase: 990002100,
+    });
+
+    const marketerLogin = await api.login({
+      phone: chain.marketer.phone,
+      password: chain.marketer.password,
+    });
+
+    const governorateId = await factories.getAnyGovernorateId();
+    const phone = '0999000111';
+
+    const created = await api.request(api.app)
+      .post('/api/customers')
+      .set(api.authHeader(marketerLogin.body.data.token))
+      .send({
+        first_name: 'Internal',
+        last_name: 'Customer',
+        phone,
+        governorate_id: governorateId,
+      });
+    expect(created.status).toBe(200);
+    const customerId = created.body.data.id;
+
+    const before = await db.query(`SELECT id, user_id, phone, customer_origin, has_account FROM customers WHERE id = $1`, [customerId]);
+    expect(before.rows[0]?.user_id).toBeNull();
+    expect(before.rows[0]?.phone).toBe(phone);
+
+    const password = 'custpass123';
+    const register = await api.request(api.app).post('/api/auth/register').send({
+      first_name: 'Internal',
+      last_name: 'Customer',
+      phone,
+      password,
+    });
+    expect(register.status).toBe(201);
+    expect(register.body.success).toBe(true);
+    expect(register.body.body.phone).toBe(phone);
+    const newUserId = register.body.body.id;
+
+    const after = await db.query(`SELECT id, user_id, phone, customer_origin, has_account FROM customers WHERE phone = $1 LIMIT 1`, [phone]);
+    expect(after.rows[0]?.id).toBe(customerId);
+    expect(after.rows[0]?.user_id).toBe(newUserId);
+    expect(after.rows[0]?.has_account).toBe(true);
+    expect(after.rows[0]?.customer_origin).toBe('INTERNAL_THEN_CLAIMED');
   });
 
   // test('customer register requires question and answer', async () => {

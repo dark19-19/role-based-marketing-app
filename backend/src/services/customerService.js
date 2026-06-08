@@ -1,8 +1,3 @@
-const bcrypt = require('bcrypt');
-const { randomUUID } = require('crypto');
-
-const roleRepository = require('../data/roleRepository');
-const userRepository = require('../data/userRepository');
 const employeeRepository = require('../data/employeeRepository');
 const customerRepository = require('../data/customerRepository');
 const orderRepository = require('../data/orderRepository');
@@ -17,35 +12,36 @@ class CustomerService {
             throw new Error('Employee not found');
         }
 
+        if (!payload || typeof payload !== 'object') {
+            throw new Error('Invalid payload');
+        }
+
+        const first_name = String(payload.first_name || '').trim();
+        const last_name = String(payload.last_name || '').trim();
+        const phone = String(payload.phone || '').trim();
+        const governorate_id = payload.governorate_id || null;
+
+        if (!first_name) throw new Error('يرجى إدخال اسم أول صحيح');
+        if (!last_name) throw new Error('يرجى إدخال اسم ثاني صحيح');
+        if (!phone) throw new Error('رقم الهاتف مطلوب');
+
         const existingCustomer = await customerRepository.findByPhoneNumber(payload.phone);
         if (existingCustomer) {
             throw new Error('رقم الهاتف مستخدم مسبقاً');
         }
 
-        const role = await roleRepository.findByName('CUSTOMER');
-
-        const passwordHash = await bcrypt.hash(payload.password, 10);
-       
-
-        const newUserId = randomUUID();
-
-        await userRepository.createUser(
-            {
-                id: newUserId,
-                first_name: payload.first_name,
-                last_name: payload.last_name,
-                phone: payload.phone,
-                passwordHash: passwordHash,
-                role_id: role.id
-            }
-        );
-
         const customerId = await customerRepository.create(
             {
-                user_id: newUserId,
+                user_id: null,
                 referred_by: employee.id,
                 first_marketer_id: employee.id,
-                governorate_id: payload.governorate_id
+                governorate_id,
+                first_name,
+                last_name,
+                phone,
+                has_account: false,
+                account_created_at: null,
+                customer_origin: 'INTERNAL',
             }
         );
 

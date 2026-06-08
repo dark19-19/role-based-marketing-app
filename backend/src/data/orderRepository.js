@@ -8,9 +8,25 @@ class OrderRepository {
     await client.query(
       `
       INSERT INTO orders
-      (id, customer_id, marketer_id, branch_id, delivery_point_id, coupon_id, discount_percentage, discount_amount, total_main_price, total_sold_price, notes, status)
+      (
+        id,
+        customer_id,
+        marketer_id,
+        branch_id,
+        delivery_point_id,
+        coupon_id,
+        discount_percentage,
+        discount_amount,
+        total_main_price,
+        total_sold_price,
+        notes,
+        status,
+        order_source,
+        commission_mode,
+        commission_employee_id
+      )
 
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'PENDING')
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'PENDING',$12,$13,$14)
       `,
       [
         id,
@@ -24,6 +40,9 @@ class OrderRepository {
         order.total_price,
         order.sold_price,
         order.notes,
+        order.order_source || null,
+        order.commission_mode || 'LEGACY',
+        order.commission_employee_id || null,
       ],
     );
 
@@ -221,8 +240,8 @@ class OrderRepository {
                 SELECT
                     ro.id,
                     ro.created_at,
-                    (cu.first_name || ' ' || cu.last_name) AS customer_name,
-                    cu.phone AS customer_phone,
+                    (COALESCE(c.first_name, cu.first_name) || ' ' || COALESCE(c.last_name, cu.last_name)) AS customer_name,
+                    COALESCE(c.phone, cu.phone) AS customer_phone,
 
                     (mu.first_name || ' ' || mu.last_name) AS marketer_name,
                     mu.phone AS marketer_phone,
@@ -258,8 +277,8 @@ class OrderRepository {
                 SELECT
                     o.id,
                     o.created_at,
-                    (cu.first_name || ' ' || cu.last_name) AS customer_name,
-                    cu.phone AS customer_phone,
+                    (COALESCE(c.first_name, cu.first_name) || ' ' || COALESCE(c.last_name, cu.last_name)) AS customer_name,
+                    COALESCE(c.phone, cu.phone) AS customer_phone,
 
                     (mu.first_name || ' ' || mu.last_name) AS marketer_name,
                     mu.phone AS marketer_phone,
@@ -449,8 +468,8 @@ class OrderRepository {
                 o.total_main_price AS total_price,
                 o.total_sold_price AS sold_price,
                 o.notes AS notes,
-                (cu.first_name || ' ' || cu.last_name) AS customer_name,
-                cu.phone AS customer_phone,
+                (COALESCE(c.first_name, cu.first_name) || ' ' || COALESCE(c.last_name, cu.last_name)) AS customer_name,
+                COALESCE(c.phone, cu.phone) AS customer_phone,
 
                 (mu.first_name || ' ' || mu.last_name) AS marketer_name,
                 mu.phone AS marketer_phone,

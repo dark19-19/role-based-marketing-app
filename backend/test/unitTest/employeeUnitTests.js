@@ -388,12 +388,21 @@ describe('Employee unit tests', () => {
         first_name: 'Cust',
         last_name: 'Apply',
         phone: '0997000070',
-        password: 'custpass123',
         governorate_id: governorateId,
       });
     expect(createCustomer.status).toBe(200);
     const customerId = createCustomer.body.data.id;
-    const userId = await factories.getUserIdByCustomerId(customerId);
+
+    const password = 'custpass123';
+    const register = await api.request(api.app).post('/api/auth/register').send({
+      first_name: 'Cust',
+      last_name: 'Apply',
+      phone: '0997000070',
+      password,
+    });
+    expect(register.status).toBe(201);
+    expect(register.body.success).toBe(true);
+    const userId = register.body.body.id;
     expect(userId).toBeTruthy();
 
     const applyRes = await api.request(api.app)

@@ -29,7 +29,6 @@ describe('Stats coupon unit tests', () => {
         first_name: 'Stat',
         last_name: 'Customer',
         phone: '0999222000',
-        password: 'custpass123',
         governorate_id: governorateId,
       });
     expect(customerRes.status).toBe(200);
@@ -59,9 +58,19 @@ describe('Stats coupon unit tests', () => {
       fee: 5,
     });
 
+    const password = 'custpass123';
+    const register = await api.request(api.app).post('/api/auth/register').send({
+      first_name: 'Stat',
+      last_name: 'Customer',
+      phone: '0999222000',
+      password,
+    });
+    expect(register.status).toBe(201);
+    expect(register.body.success).toBe(true);
+
     const customerToken = await api.getToken({
       phone: '0999222000',
-      password: 'custpass123',
+      password,
     });
 
     const orderRes = await factories.createOrder(customerToken, {

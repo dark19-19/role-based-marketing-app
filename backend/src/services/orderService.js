@@ -14,6 +14,7 @@ const adminRepo = require("../data/adminRepository");
 const notificationHelper = require("../helpers/notificationHelper");
 const orderCommentService = require("../services/orderCommentService");
 const couponService = require("./couponService");
+const config = require("../config");
 
 class OrderService {
   async createOrder(user, payload, client) {
@@ -43,11 +44,17 @@ class OrderService {
     // Use the actual customer ID from the database
     customer_id = customer.id;
 
-    // 2️⃣ determine marketer_id
+    // 2️⃣ determine marketer_id + commission snapshot
     let marketerId = null;
+    let orderSource = null;
+    let commissionMode = "LEGACY";
+    let commissionEmployeeId = null;
 
     if (user.role === "CUSTOMER") {
-      marketerId = customer.referred_by || customer.first_marketer_id || null;
+      marketerId = null;
+      orderSource = "CUSTOMER_APP";
+      commissionMode = "COMPANY_ONLY";
+      commissionEmployeeId = null;
     } else {
       const employee = await employeeRepository.findByUserId(user.id);
 
@@ -56,6 +63,16 @@ class OrderService {
       }
 
       marketerId = employee.id;
+      orderSource = "STAFF";
+
+      const hasAccount = customer.has_account === true || !!customer.user_id;
+      if (hasAccount) {
+        commissionMode = config.staffOrderAccountCustomerCommissionMode;
+        commissionEmployeeId = commissionMode === "HIERARCHY" ? employee.id : null;
+      } else {
+        commissionMode = "HIERARCHY";
+        commissionEmployeeId = employee.id;
+      }
     }
 
     // Allow null marketerId for self-registered customers (no referral)
@@ -185,6 +202,9 @@ class OrderService {
         total_price: totalPrice,
         sold_price: finalSoldPrice,
         notes,
+        order_source: orderSource,
+        commission_mode: commissionMode,
+        commission_employee_id: commissionEmployeeId,
       },
       client,
     );
@@ -237,7 +257,7 @@ class OrderService {
     await orderRepository.updateStatus(orderId, "APPROVED", client);
 
     const customer = await customerRepository.findById(order.customer_id);
-    if (customer) {
+    if (customer && customer.user_id) {
       await notificationHelper.notify(
         customer.user_id,
         "تم قبول طلبك",
@@ -322,7 +342,7 @@ class OrderService {
 
     // Notify the customer
     const customer = await customerRepository.findById(order.customer_id);
-    if (customer) {
+    if (customer && customer.user_id) {
       await notificationHelper.notify(
         customer.user_id,
         "تم تسليم طلبك",
@@ -515,9 +535,17 @@ class OrderService {
       marketer,
     });
 
-    // Handle orders without a marketer (self-registered customers)
-    let marketerEmployee = order.marketer_id
-      ? await employeeRepository.findById(order.marketer_id)
+    const commissionMode = order.commission_mode || "LEGACY";
+    const commissionEmployeeId =
+      commissionMode === "HIERARCHY"
+        ? order.commission_employee_id || order.marketer_id
+        : commissionMode === "LEGACY"
+          ? order.marketer_id
+          : null;
+
+    // Handle orders without a marketer or company-only commissions
+    let marketerEmployee = commissionEmployeeId
+      ? await employeeRepository.findById(commissionEmployeeId)
       : null;
     let supervisorEmployee = marketerEmployee?.supervisor_id
       ? await employeeRepository.findById(marketerEmployee.supervisor_id)
@@ -527,9 +555,9 @@ class OrderService {
       : null;
 
 
-    // If no marketer (self-registered customer), ALL profits go to company
-    if (!marketerEmployee) {
-      const totalProfit = order.total_sold_price;
+    // If no marketer or commission mode is company-only, ALL profits go to company
+    if (commissionMode === "COMPANY_ONLY" || !marketerEmployee) {
+      const totalProfit = Number(order.total_sold_price || 0);
       const admin = await adminRepo.getCompanyAccount();
       const distributions = [];
 
@@ -653,7 +681,7 @@ class OrderService {
 
     // Notify the customer
     const customer = await customerRepository.findById(order.customer_id);
-    if (customer) {
+    if (customer && customer.user_id) {
       await notificationHelper.notify(
         customer.user_id,
         "تم رفض طلبك",
@@ -894,7 +922,7 @@ class OrderService {
 
     // Notify the customer
     const customer = await customerRepository.findById(order.customer_id);
-    if (customer) {
+    if (customer && customer.user_id) {
       await notificationHelper.notify(
         customer.user_id,
         "تم إلغاء الطلب",

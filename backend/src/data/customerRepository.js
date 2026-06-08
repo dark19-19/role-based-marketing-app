@@ -10,16 +10,34 @@ class CustomerRepository {
         await db.query(
             `
       INSERT INTO customers
-      (id, user_id, referred_by, first_marketer_id, governorate_id)
+      (
+        id,
+        user_id,
+        referred_by,
+        first_marketer_id,
+        governorate_id,
+        first_name,
+        last_name,
+        phone,
+        has_account,
+        account_created_at,
+        customer_origin
+      )
 
-      VALUES ($1,$2,$3,$4,$5)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
       `,
             [
                 id,
-                data.user_id,
-                data.referred_by,
-                data.first_marketer_id,
-                data.governorate_id
+                data.user_id || null,
+                data.referred_by || null,
+                data.first_marketer_id || null,
+                data.governorate_id || null,
+                data.first_name || null,
+                data.last_name || null,
+                data.phone || null,
+                data.has_account === true,
+                data.account_created_at || null,
+                data.customer_origin || "INTERNAL",
             ]
         );
 
@@ -37,7 +55,7 @@ class CustomerRepository {
 
         if (search) {
             whereConditions.push(
-                `(u.first_name || ' ' || u.last_name ILIKE $${paramIndex} OR u.phone ILIKE $${paramIndex})`
+                `((COALESCE(c.first_name, u.first_name) || ' ' || COALESCE(c.last_name, u.last_name)) ILIKE $${paramIndex} OR COALESCE(c.phone, u.phone) ILIKE $${paramIndex})`
             );
             params.push(`%${search}%`);
             paramIndex++;
@@ -56,11 +74,13 @@ class CustomerRepository {
             `
     SELECT
        c.id as customer_id,
-       u.id as customer_user_id,
-      u.first_name || ' ' || u.last_name AS name,
-      u.phone,
+      c.user_id as customer_user_id,
+      (COALESCE(c.first_name, u.first_name) || ' ' || COALESCE(c.last_name, u.last_name)) AS name,
+      COALESCE(c.phone, u.phone) AS phone,
       u.is_active,
       c.is_active as customer_is_active,
+      c.has_account,
+      c.customer_origin,
 
       g.name AS governorate,
 
@@ -72,7 +92,7 @@ class CustomerRepository {
 
     FROM customers c
 
-    JOIN users u
+    LEFT JOIN users u
       ON u.id = c.user_id
 
     LEFT JOIN governorates g
@@ -98,7 +118,7 @@ class CustomerRepository {
 
     ${whereClause}
 
-    ORDER BY u.first_name, c.id DESC
+    ORDER BY COALESCE(c.first_name, u.first_name), c.id DESC
 
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `,
@@ -107,7 +127,7 @@ class CustomerRepository {
 
         const countQuery = `
     SELECT COUNT(*) FROM customers c
-    JOIN users u ON u.id = c.user_id
+    LEFT JOIN users u ON u.id = c.user_id
     ${whereClause}
     `;
         const count = await db.query(countQuery, params);
@@ -128,9 +148,15 @@ class CustomerRepository {
       c.referred_by,
       c.first_marketer_id,
       c.governorate_id,
+      c.first_name,
+      c.last_name,
+      c.phone AS customer_phone,
+      c.has_account,
+      c.account_created_at,
+      c.customer_origin,
 
-      (u.first_name || ' ' || u.last_name) AS full_name,
-      u.phone,
+      (COALESCE(c.first_name, u.first_name) || ' ' || COALESCE(c.last_name, u.last_name)) AS full_name,
+      COALESCE(c.phone, u.phone) AS phone,
 
       g.name AS governorate,
 
@@ -142,7 +168,7 @@ class CustomerRepository {
 
     FROM customers c
 
-    JOIN users u ON u.id = c.user_id
+    LEFT JOIN users u ON u.id = c.user_id
 
     LEFT JOIN governorates g
       ON g.id = c.governorate_id
@@ -172,17 +198,40 @@ class CustomerRepository {
                 SELECT
                     c.id AS customer_id,
                     c.user_id,
-                    u.phone,
-                    u.first_name,
-                    u.last_name
+                    COALESCE(c.phone, u.phone) AS phone,
+                    COALESCE(c.first_name, u.first_name) AS first_name,
+                    COALESCE(c.last_name, u.last_name) AS last_name
                 FROM customers c
-                JOIN users u ON u.id = c.user_id
-                WHERE u.phone = $1
+                LEFT JOIN users u ON u.id = c.user_id
+                WHERE COALESCE(c.phone, u.phone) = $1
                 LIMIT 1
             `,
             [phone]
         );
         return rows[0] || null;
+    }
+
+    async attachUserToCustomerByPhone({ phone, userId, first_name, last_name, client = null }) {
+        const queryClient = client || db;
+        const { rows } = await queryClient.query(
+            `
+            UPDATE customers
+            SET
+              user_id = $2,
+              has_account = true,
+              account_created_at = NOW(),
+              customer_origin = 'INTERNAL_THEN_CLAIMED',
+              first_name = $3,
+              last_name = $4,
+              phone = $1
+            WHERE phone = $1
+              AND user_id IS NULL
+              AND is_active = true
+            RETURNING id
+            `,
+            [phone, userId, first_name, last_name]
+        );
+        return rows[0]?.id || null;
     }
 
     async findByUserId(userId) {
@@ -214,8 +263,21 @@ class CustomerRepository {
         await client.query(
             `
             INSERT INTO customers
-            (id, user_id, referred_by, first_marketer_id, governorate_id, is_active)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            (
+              id,
+              user_id,
+              referred_by,
+              first_marketer_id,
+              governorate_id,
+              is_active,
+              first_name,
+              last_name,
+              phone,
+              has_account,
+              account_created_at,
+              customer_origin
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             `,
             [
                 id,
@@ -223,7 +285,13 @@ class CustomerRepository {
                 data.referred_by || null,
                 data.first_marketer_id || null,
                 data.governorate_id,
-                data.is_active !== undefined ? data.is_active : true
+                data.is_active !== undefined ? data.is_active : true,
+                data.first_name || null,
+                data.last_name || null,
+                data.phone || null,
+                data.has_account === true,
+                data.account_created_at || null,
+                data.customer_origin || "INTERNAL",
             ]
         );
         return id;

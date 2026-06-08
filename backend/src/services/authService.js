@@ -82,6 +82,11 @@ class AuthService {
         throw new Error("رقم الهاتف مستخدم مسبقاً");
       }
 
+      const existingCustomer = await customerRepo.findByPhoneNumber(phone);
+      if (existingCustomer && existingCustomer.user_id) {
+        throw new Error("رقم الهاتف مستخدم مسبقاً");
+      }
+
       const role = await roleRepo.findByName("CUSTOMER");
 
       if (!role) {
@@ -92,28 +97,47 @@ class AuthService {
       // const answerHash = await bcrypt.hash(answer, 10);
       const id = randomUUID();
 
-      await authRepo.createCustomerUser({
-        id,
-        first_name,
-        last_name,
-        phone,
-        passwordHash: hash,
-        role_id: role.id,
-        question,
-        answer: answer,
-      });
+      await db.runInTransaction(async (client) => {
+        await authRepo.createCustomerUser({
+          id,
+          first_name,
+          last_name,
+          phone,
+          passwordHash: hash,
+          role_id: role.id,
+          question,
+          answer: answer,
+          client,
+        });
 
-      // Create a customer record linked to this user
-      try {
-        await db.query(
-          `INSERT INTO customers (id, user_id, governorate_id, referred_by, first_marketer_id)
-           VALUES ($1, $2, NULL, NULL, NULL)`,
-          [randomUUID(), id]
-        );
-        console.log(`✅ Customer record created for user: ${id}`);
-      } catch (customerErr) {
-        console.warn(`⚠️ Warning: Could not create customer record:`, customerErr.message);
-      }
+        if (existingCustomer && !existingCustomer.user_id) {
+          const attached = await customerRepo.attachUserToCustomerByPhone({
+            phone,
+            userId: id,
+            first_name,
+            last_name,
+            client,
+          });
+          if (!attached) {
+            throw new Error("فشل ربط سجل العميل");
+          }
+          return;
+        }
+
+        await customerRepo.createWithClient(client, {
+          user_id: id,
+          governorate_id: null,
+          referred_by: null,
+          first_marketer_id: null,
+          is_active: true,
+          first_name,
+          last_name,
+          phone,
+          has_account: true,
+          account_created_at: new Date(),
+          customer_origin: "SELF_REGISTERED",
+        });
+      });
 
       const token = buildAccessToken({
         id,

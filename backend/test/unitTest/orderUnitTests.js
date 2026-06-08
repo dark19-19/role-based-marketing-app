@@ -43,11 +43,26 @@ describe('Order unit tests', () => {
         first_name: 'Cust',
         last_name: 'Orders',
         phone,
-        password: 'custpass123',
         governorate_id: governorateId,
       });
     expect(res.status).toBe(200);
-    return { customerId: res.body.data.id, phone, password: 'custpass123' };
+    return { customerId: res.body.data.id, phone };
+  }
+
+  async function registerAndLoginCustomer({ phone, first_name = 'Cust', last_name = 'App', password = 'custpass123' }) {
+    const register = await api.request(api.app).post('/api/auth/register').send({
+      first_name,
+      last_name,
+      phone,
+      password,
+    });
+    expect(register.status).toBe(201);
+    expect(register.body.success).toBe(true);
+
+    const login = await api.login({ phone, password });
+    expect(login.status).toBe(200);
+    expect(login.body.success).toBe(true);
+    return login;
   }
 
   test('(Marketer, supervisor, general supervisor, customer) can create an order', async () => {
@@ -64,12 +79,12 @@ describe('Order unit tests', () => {
     const supervisorLogin = await api.login({ phone: chain.supervisor.phone, password: chain.supervisor.password });
     const gsLogin = await api.login({ phone: chain.generalSupervisor.phone, password: chain.generalSupervisor.password });
 
-    const { customerId, phone: customerPhone, password: customerPass } = await createCustomerViaMarketer({
+    const { customerId, phone: customerPhone } = await createCustomerViaMarketer({
       marketerToken: marketerLogin.body.data.token,
       governorateId,
       phone: '0996000010',
     });
-    const customerLogin = await api.login({ phone: customerPhone, password: customerPass });
+    const customerLogin = await registerAndLoginCustomer({ phone: customerPhone });
 
     const creators = [
       { role: 'MARKETER', token: marketerLogin.body.data.token },
@@ -488,12 +503,12 @@ describe('Order unit tests', () => {
     const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
     const bmLogin = await api.login({ phone: chain.branchManager.phone, password: chain.branchManager.password });
 
-    const { customerId, phone: customerPhone, password: customerPass } = await createCustomerViaMarketer({
+    const { customerId, phone: customerPhone } = await createCustomerViaMarketer({
       marketerToken: marketerLogin.body.data.token,
       governorateId,
       phone: '0996000080',
     });
-    const customerLogin = await api.login({ phone: customerPhone, password: customerPass });
+    const customerLogin = await registerAndLoginCustomer({ phone: customerPhone });
 
     const createdByMarketer = await factories.createOrder(marketerLogin.body.data.token, {
       customer_id: customerId,
@@ -559,12 +574,12 @@ describe('Order unit tests', () => {
     const marketerLogin = await api.login({ phone: chain.marketer.phone, password: chain.marketer.password });
     const bmLogin = await api.login({ phone: chain.branchManager.phone, password: chain.branchManager.password });
 
-    const { customerId, phone: customerPhone, password: customerPass } = await createCustomerViaMarketer({
+    const { customerId, phone: customerPhone } = await createCustomerViaMarketer({
       marketerToken: marketerLogin.body.data.token,
       governorateId,
       phone: '0996000090',
     });
-    const customerLogin = await api.login({ phone: customerPhone, password: customerPass });
+    const customerLogin = await registerAndLoginCustomer({ phone: customerPhone });
 
     await factories.createOrder(marketerLogin.body.data.token, {
       customer_id: customerId,

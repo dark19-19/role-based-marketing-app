@@ -111,6 +111,18 @@ function parseTrustProxy() {
   return raw;
 }
 
+function parseStaffOrderAccountCustomerCommissionMode() {
+  const raw = optionalEnv('STAFF_ORDER_ACCOUNT_CUSTOMER_COMMISSION_MODE', 'COMPANY_ONLY');
+  const v = String(raw).trim();
+  const allowed = new Set(['COMPANY_ONLY', 'HIERARCHY']);
+  if (!allowed.has(v)) {
+    throw new Error(
+      `Invalid STAFF_ORDER_ACCOUNT_CUSTOMER_COMMISSION_MODE: ${v} (expected COMPANY_ONLY|HIERARCHY)`,
+    );
+  }
+  return v;
+}
+
 function parseServerHardening() {
   const headersTimeoutMs = parseOptionalIntEnv('SERVER_HEADERS_TIMEOUT_MS', 6000);
   const requestTimeoutMs = parseOptionalIntEnv('SERVER_REQUEST_TIMEOUT_MS', 30000);
@@ -175,6 +187,7 @@ const config = {
   jwtSecret: requiredEnv('JWT_SECRET'),
   encryptionKey: parseEncryptionKey(),
   trustProxy: parseTrustProxy(),
+  staffOrderAccountCustomerCommissionMode: parseStaffOrderAccountCustomerCommissionMode(),
   notificationsCleanupHour: parseNotificationCleanupHour(),
   notificationsMaxCount: parseNotificationMaxCount(),
   notificationsHardDeleteAfterDays: parseNotificationsHardDeleteAfterDays(),

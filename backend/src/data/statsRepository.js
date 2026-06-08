@@ -50,14 +50,14 @@ class StatsRepository {
     const { rows } = await db.query(`
       SELECT 
         c.id,
-        u.first_name || ' ' || u.last_name AS name,
-        u.phone,
+        (COALESCE(c.first_name, u.first_name) || ' ' || COALESCE(c.last_name, u.last_name)) AS name,
+        COALESCE(c.phone, u.phone) AS phone,
         COUNT(o.id)::int AS orders_count
       FROM customers c
-      JOIN users u ON u.id = c.user_id
+      LEFT JOIN users u ON u.id = c.user_id
       LEFT JOIN orders o ON o.customer_id = c.id AND o.status != 'CANCELLED'
       WHERE c.is_active = true
-      GROUP BY c.id, u.first_name, u.last_name, u.phone
+      GROUP BY c.id, c.first_name, c.last_name, c.phone, u.first_name, u.last_name, u.phone
       ORDER BY orders_count DESC
       LIMIT $1
     `, [limit]);
@@ -116,14 +116,14 @@ class StatsRepository {
     const { rows } = await db.query(`
       SELECT 
         c.id,
-        u.first_name || ' ' || u.last_name AS name,
-        u.phone,
+        (COALESCE(c.first_name, u.first_name) || ' ' || COALESCE(c.last_name, u.last_name)) AS name,
+        COALESCE(c.phone, u.phone) AS phone,
         COUNT(o.id)::int AS orders_count
       FROM customers c
-      JOIN users u ON u.id = c.user_id
+      LEFT JOIN users u ON u.id = c.user_id
       LEFT JOIN orders o ON o.customer_id = c.id AND o.branch_id = $1 AND o.status != 'CANCELLED'
       WHERE c.is_active = true
-      GROUP BY c.id, u.first_name, u.last_name, u.phone
+      GROUP BY c.id, c.first_name, c.last_name, c.phone, u.first_name, u.last_name, u.phone
       ORDER BY orders_count DESC
       LIMIT $2
     `, [branchId, limit]);
@@ -159,8 +159,8 @@ class StatsRepository {
         o.discount_amount,
         cp.code AS coupon_code,
         o.created_at,
-        cu.first_name || ' ' || cu.last_name AS customer_name,
-        cu.phone AS customer_phone,
+        (COALESCE(c.first_name, cu.first_name) || ' ' || COALESCE(c.last_name, cu.last_name)) AS customer_name,
+        COALESCE(c.phone, cu.phone) AS customer_phone,
         g.name AS governorate
       FROM orders o
       LEFT JOIN customers c ON c.id = o.customer_id
@@ -181,15 +181,15 @@ class StatsRepository {
     const { rows } = await db.query(`
       SELECT 
         c.id,
-        u.first_name || ' ' || u.last_name AS name,
-        u.phone,
+        (COALESCE(c.first_name, u.first_name) || ' ' || COALESCE(c.last_name, u.last_name)) AS name,
+        COALESCE(c.phone, u.phone) AS phone,
         COUNT(o.id)::int AS orders_count,
         COALESCE(SUM(o.total_sold_price), 0)::numeric AS total_spent
       FROM customers c
-      JOIN users u ON u.id = c.user_id
+      LEFT JOIN users u ON u.id = c.user_id
       LEFT JOIN orders o ON o.customer_id = c.id AND o.status != 'CANCELLED'
       WHERE c.referred_by = $1 AND c.is_active = true
-      GROUP BY c.id, u.first_name, u.last_name, u.phone
+      GROUP BY c.id, c.first_name, c.last_name, c.phone, u.first_name, u.last_name, u.phone
       ORDER BY orders_count DESC
       LIMIT $2
     `, [employeeId, limit]);

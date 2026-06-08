@@ -12,6 +12,7 @@
     "migrate": "node src/migrate.js",
     "migrate:rollback": "node src/migrate.js -r",
     "migrate:uploads": "node src/scripts/migrateUploadsToVolume.js",
+    "backfill:customers-orders": "node src/scripts/backfillCustomersAndLegacyOrders.js",
     "seed": "node src/seed/index.js",
     "revoke-seed": "node src/seed/Deleter.js"
   },
