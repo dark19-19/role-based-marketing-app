@@ -103,7 +103,8 @@ class SalaryRequestController {
     async approve(req, res) {
         try {
             const id = req.params.id;
-            await salaryService.approveRequest(id);
+            const { adjustment_type, adjustment_amount } = req.body || {};
+            await salaryService.approveRequest(id, adjustment_type, adjustment_amount);
 
             res.status(200).json({
                 success: true

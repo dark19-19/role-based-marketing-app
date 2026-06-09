@@ -91,13 +91,21 @@ class SalaryRequestRepository {
         return rows[0] || null;
     }
 
-    async updateStatus(client, id, status) {
+    async updateStatus(client, id, status, adjustmentType = null, adjustmentAmount = null) {
         const queryClient = client || db;
-        await queryClient.query(`
-            UPDATE salary_requests
-            SET status = $1
-            WHERE id = $2
-        `, [status, id]);
+        if (adjustmentType !== null && adjustmentAmount !== null) {
+            await queryClient.query(`
+                UPDATE salary_requests
+                SET status = $1, adjustment_type = $3, adjustment_amount = $4
+                WHERE id = $2
+            `, [status, id, adjustmentType, adjustmentAmount]);
+        } else {
+            await queryClient.query(`
+                UPDATE salary_requests
+                SET status = $1
+                WHERE id = $2
+            `, [status, id]);
+        }
     }
 
     async getPendingByEmployeeId(employeeId) {
@@ -160,6 +168,8 @@ class SalaryRequestRepository {
       sr.phone_number,
       sr.address,
       sr.payment_method,
+      sr.adjustment_type,
+      sr.adjustment_amount,
 
       u.first_name || ' ' || u.last_name AS employeeName,
       u.phone,
@@ -217,6 +227,7 @@ class SalaryRequestRepository {
         const { rows } = await db.query(`
     SELECT
       sr.id,
+      sr.employee_id,
       sr.requested_amount AS amount,
       sr.status,
       sr.created_at AS requestDate,
@@ -225,6 +236,8 @@ class SalaryRequestRepository {
       sr.address,
       sr.payment_method,
       sr.note,
+      sr.adjustment_type,
+      sr.adjustment_amount,
 
       u.first_name || ' ' || u.last_name AS employeeName,
       u.phone,

@@ -1,4 +1,5 @@
 const db = require('../helpers/DBHelper');
+const { randomUUID } = require('crypto');
 const salaryRepo = require('../data/salaryRequestRepository');
 const TYPES = require('../utils/walletTransactionTypes');
 const STATUS = require('../utils/salaryRequestStatus');
@@ -90,12 +91,16 @@ class SalaryRequestService {
         };
     }
 
-    async approveRequest(requestId) {
+    async approveRequest(requestId, adjustmentType = 'BONUS', adjustmentAmount = 0) {
         return db.runInTransaction(async (client) => {
             const request = await salaryRepo.findById(requestId);
             if (!request) throw new Error('Salary request not found');
             if (request.status !== STATUS.PENDING) {
                 throw new Error('Salary request status is not pending');
+            }
+
+            if (adjustmentType === 'DISCOUNT' && Number(adjustmentAmount) > Number(request.amount)) {
+                throw new Error('مبلغ الخصم لا يمكن أن يكون أكبر من مبلغ طلب الراتب');
             }
 
             const transactions = await salaryRepo.getRequestTransactions(requestId);
@@ -105,16 +110,34 @@ class SalaryRequestService {
                 await salaryRepo.updateTransactionsType(client, ids, TYPES.WITHDREW);
             }
 
-            await salaryRepo.updateStatus(client, requestId, STATUS.APPROVED);
+            // Save the adjustment details to the request and set status to APPROVED
+            await salaryRepo.updateStatus(client, requestId, STATUS.APPROVED, adjustmentType, adjustmentAmount);
+
+            // If there's an adjustment amount, create the corresponding wallet transaction
+            if (Number(adjustmentAmount) > 0) {
+                const txId = randomUUID();
+                await client.query(`
+                    INSERT INTO wallet_transactions (id, employee_id, amount, type)
+                    VALUES ($1, $2, $3, $4)
+                `, [txId, request.employee_id || request.employeeId, adjustmentAmount, adjustmentType]);
+
+                // Link the new adjustment transaction to the salary request
+                await salaryRepo.attachTransactions(client, requestId, [txId]);
+            }
 
             // Notify employee (Robust)
             try {
-                const request = await salaryRepo.getRequestById(requestId);
-                if (request) {
-                    const employee = await employeeRepo.findById(request.employee_id || request.employeeId);
-                    if (employee && employee.user_id) {
-                        await notificationHelper.notify(employee.user_id, 'تمت الموافقة على طلب الراتب', `تمت الموافقة على طلب الراتب الخاص بك بنجاح.`);
+                const employee = await employeeRepo.findById(request.employee_id || request.employeeId);
+                if (employee && employee.user_id) {
+                    let msg = `تمت الموافقة على طلب الراتب الخاص بك بنجاح.`;
+                    if (Number(adjustmentAmount) > 0) {
+                        if (adjustmentType === 'BONUS') {
+                            msg = `تمت الموافقة على طلب الراتب الخاص بك بنجاح مع إضافة مكافأة بقيمة ${adjustmentAmount}.`;
+                        } else if (adjustmentType === 'DISCOUNT') {
+                            msg = `تمت الموافقة على طلب الراتب الخاص بك بنجاح مع تطبيق خصم بقيمة ${adjustmentAmount}.`;
+                        }
                     }
+                    await notificationHelper.notify(employee.user_id, 'تمت الموافقة على طلب الراتب', msg);
                 }
             } catch (notifyErr) {
                 console.error("[SalaryRequestService] Approval notification error (ignored):", notifyErr.message);

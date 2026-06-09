@@ -2,7 +2,9 @@ const TYPES = {
     BALANCE: 'BALANCE',
     REQUESTED: 'REQUESTED',
     WITHDREW: 'WITHDREW',
-    REFUNDED: 'REFUNDED'
+    REFUNDED: 'REFUNDED',
+    BONUS: 'BONUS',
+    DISCOUNT: 'DISCOUNT'
 };
 
 module.exports = TYPES;

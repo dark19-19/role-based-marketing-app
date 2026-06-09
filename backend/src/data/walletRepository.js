@@ -25,9 +25,18 @@ class WalletRepository {
         const { rows } = await db.query(`
             SELECT 
                 COALESCE(SUM(CASE WHEN type = 'BALANCE' THEN amount ELSE 0 END), 0) as current_balance,
-                COALESCE(SUM(CASE WHEN type = 'WITHDREW' THEN amount ELSE 0 END), 0) as total_withdrawn,
+                COALESCE(SUM(CASE 
+                    WHEN type = 'WITHDREW' THEN amount 
+                    WHEN type = 'BONUS' THEN amount 
+                    WHEN type = 'DISCOUNT' THEN -amount 
+                    ELSE 0 
+                END), 0) as total_withdrawn,
                 COALESCE(SUM(CASE WHEN type = 'REQUESTED' THEN amount ELSE 0 END), 0) as pending_requests_total,
-                COALESCE(SUM(amount), 0) as total_earned
+                COALESCE(SUM(CASE 
+                    WHEN type IN ('BALANCE', 'WITHDREW', 'REQUESTED', 'BONUS') THEN amount 
+                    WHEN type = 'DISCOUNT' THEN -amount 
+                    ELSE 0 
+                END), 0) as total_earned
             FROM wallet_transactions
             WHERE employee_id = $1
         `, [employeeId]);
@@ -47,6 +56,8 @@ class WalletRepository {
                     WHEN w.type = 'BALANCE' THEN 'إضافة رصيد (صالح للسحب)'
                     WHEN w.type = 'REQUESTED' THEN 'طلب سحب رصيد (قيد المعالجة)'
                     WHEN w.type = 'WITHDREW' THEN 'عملية سحب ناجحة'
+                    WHEN w.type = 'BONUS' THEN 'مكافأة (تمت إضافتها لطلب الراتب)'
+                    WHEN w.type = 'DISCOUNT' THEN 'خصم (تم استقطاعه من طلب الراتب)'
                     ELSE w.type
                 END as description
             FROM wallet_transactions w

@@ -434,4 +434,102 @@ describe('Salary requests unit tests', () => {
     expect(asBM.body.data.payment_method).toBe(detailsPayload.payment_method);
     expect(asBM.body.data.note).toBe(detailsPayload.note);
   });
+
+  test('admin can approve a salary request with a BONUS adjustment', async () => {
+    const setup = await setupBranchAndChain();
+
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 100 });
+    const created = await createSalaryRequest(setup.tokens.marketer);
+    expect(created.status).toBe(201);
+    const requestId = created.body.data.id;
+
+    // Approve with a BONUS of 50
+    const approveRes = await api.request(api.app)
+      .patch(`/api/salary-requests/${requestId}/approve`)
+      .set(api.authHeader(await freshAdminToken()))
+      .send({ adjustment_type: 'BONUS', adjustment_amount: 50 });
+    expect(approveRes.status).toBe(200);
+    expect(approveRes.body.success).toBe(true);
+
+    // Status should be APPROVED
+    const details = await getSalaryRequestDetails(await freshAdminToken(), requestId);
+    expect(details.status).toBe(200);
+    expect(details.body.data.status).toBe('APPROVED');
+
+    // adjustment fields stored on the request
+    expect(details.body.data.adjustment_type).toBe('BONUS');
+    expect(Number(details.body.data.adjustment_amount)).toBe(50);
+
+    // A BONUS wallet transaction should exist for the marketer
+    const { rows } = await db.query(
+      `SELECT type, amount FROM wallet_transactions
+       WHERE employee_id = $1 AND type = 'BONUS'`,
+      [setup.chain.marketer.employeeId]
+    );
+    expect(rows.length).toBe(1);
+    expect(Number(rows[0].amount)).toBe(50);
+  });
+
+  test('admin can approve a salary request with a DISCOUNT adjustment', async () => {
+    const setup = await setupBranchAndChain();
+
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.supervisor.employeeId, amount: 200 });
+    const created = await createSalaryRequest(setup.tokens.supervisor);
+    expect(created.status).toBe(201);
+    const requestId = created.body.data.id;
+
+    // Approve with a DISCOUNT of 30
+    const approveRes = await api.request(api.app)
+      .patch(`/api/salary-requests/${requestId}/approve`)
+      .set(api.authHeader(await freshAdminToken()))
+      .send({ adjustment_type: 'DISCOUNT', adjustment_amount: 30 });
+    expect(approveRes.status).toBe(200);
+    expect(approveRes.body.success).toBe(true);
+
+    // Status should be APPROVED
+    const details = await getSalaryRequestDetails(await freshAdminToken(), requestId);
+    expect(details.status).toBe(200);
+    expect(details.body.data.status).toBe('APPROVED');
+
+    // adjustment fields stored on the request
+    expect(details.body.data.adjustment_type).toBe('DISCOUNT');
+    expect(Number(details.body.data.adjustment_amount)).toBe(30);
+
+    // A DISCOUNT wallet transaction should exist for the supervisor
+    const { rows } = await db.query(
+      `SELECT type, amount FROM wallet_transactions
+       WHERE employee_id = $1 AND type = 'DISCOUNT'`,
+      [setup.chain.supervisor.employeeId]
+    );
+    expect(rows.length).toBe(1);
+    expect(Number(rows[0].amount)).toBe(30);
+  });
+
+  test('admin can approve a salary request with zero adjustment (no extra tx created)', async () => {
+    const setup = await setupBranchAndChain();
+
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.generalSupervisor.employeeId, amount: 80 });
+    const created = await createSalaryRequest(setup.tokens.generalSupervisor);
+    expect(created.status).toBe(201);
+    const requestId = created.body.data.id;
+
+    // Approve with amount 0 (no adjustment)
+    const approveRes = await api.request(api.app)
+      .patch(`/api/salary-requests/${requestId}/approve`)
+      .set(api.authHeader(await freshAdminToken()))
+      .send({ adjustment_type: 'BONUS', adjustment_amount: 0 });
+    expect(approveRes.status).toBe(200);
+    expect(approveRes.body.success).toBe(true);
+
+    // Status APPROVED and no BONUS/DISCOUNT transactions created
+    const details = await getSalaryRequestDetails(await freshAdminToken(), requestId);
+    expect(details.body.data.status).toBe('APPROVED');
+
+    const { rows } = await db.query(
+      `SELECT type FROM wallet_transactions
+       WHERE employee_id = $1 AND type IN ('BONUS','DISCOUNT')`,
+      [setup.chain.generalSupervisor.employeeId]
+    );
+    expect(rows.length).toBe(0);
+  });
 });
