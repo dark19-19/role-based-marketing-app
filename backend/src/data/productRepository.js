@@ -5,8 +5,8 @@ class ProductRepository {
   async createProductWithImage(product) {
     const sql = `
         INSERT INTO products
-        (name, description, price, quantity, category_id)
-        VALUES ($1,$2,$3,$4,$5)
+        (name, description, price, quantity, category_id, in_stock)
+        VALUES ($1,$2,$3,$4,$5, CASE WHEN $4 <= 0 THEN FALSE ELSE TRUE END)
         RETURNING *
       `;
 
@@ -107,6 +107,7 @@ class ProductRepository {
         price = $3,
         quantity = $4,
         category_id = $5,
+        in_stock = CASE WHEN $4 <= 0 THEN FALSE ELSE TRUE END,
         updated_at = NOW()
       WHERE id = $6
       RETURNING *

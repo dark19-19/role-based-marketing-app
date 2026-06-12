@@ -15,6 +15,7 @@ const notificationHelper = require("../helpers/notificationHelper");
 const orderCommentService = require("../services/orderCommentService");
 const couponService = require("./couponService");
 const config = require("../config");
+const cacheAside = require("../patterns/CacheAside");
 
 class OrderService {
   async createOrder(user, payload, client) {
@@ -239,6 +240,8 @@ class OrderService {
       "طلب جديد في الفرع",
       "تم إنشاء طلب جديد وتم تحويله إلى فرعكم. يرجى مراجعة الطلب واتخاذ الإجراء المناسب.",
     );
+
+    cacheAside.invalidateByPrefix("products:list:");
 
     return { orderId, updatedCoupon };
   }
@@ -700,6 +703,8 @@ class OrderService {
         );
       }
     }
+
+    cacheAside.invalidateByPrefix("products:list:");
   }
 
   async list(user, query) {
@@ -929,6 +934,8 @@ class OrderService {
         `تم إلغاء الطلب رقم ${orderId.substring(0, 8)}.`,
       );
     }
+
+    cacheAside.invalidateByPrefix("products:list:");
   }
 
   async _checkCancelAuthorization(user, order) {
