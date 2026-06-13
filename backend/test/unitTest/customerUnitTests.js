@@ -203,4 +203,46 @@ describe('Customer unit tests', () => {
     expect(res.body.success).toBe(false);
     expect(res.body.message).toBe('Customer not found');
   });
+
+  test('customer can list governorates and set governorate_id once (self-registered customer)', async () => {
+    const phone = '0991000099';
+    const password = 'custpass123';
+
+    const register = await api.registerCustomer({
+      first_name: 'Self',
+      last_name: 'Gov',
+      phone,
+      password,
+    });
+    expect(register.status).toBe(201);
+
+    const login = await api.login({ phone, password });
+    expect(login.status).toBe(200);
+    const token = login.body.data.token;
+    expect(login.body.data.governorate_id).toBeNull();
+
+    const listGovs = await api.request(api.app)
+      .get('/api/governorates?page=1&limit=20')
+      .set(api.authHeader(token));
+    expect(listGovs.status).toBe(200);
+    expect(listGovs.body.success).toBe(true);
+    expect(Array.isArray(listGovs.body.body.data)).toBe(true);
+
+    const governorateId = await factories.getAnyGovernorateId();
+    const update = await api.request(api.app)
+      .patch('/api/customers/me/governorate')
+      .set(api.authHeader(token))
+      .send({ governorate_id: governorateId });
+    expect(update.status).toBe(200);
+    expect(update.body.success).toBe(true);
+    expect(update.body.data.governorate_id).toBe(governorateId);
+
+    const updateAgain = await api.request(api.app)
+      .patch('/api/customers/me/governorate')
+      .set(api.authHeader(token))
+      .send({ governorate_id: governorateId });
+    expect(updateAgain.status).toBe(400);
+    expect(updateAgain.body.success).toBe(false);
+    expect(updateAgain.body.message).toBe('Governorate is already set');
+  });
 });

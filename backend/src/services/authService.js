@@ -60,6 +60,7 @@ class AuthService {
         employee_id: user.employee_id,
         branch_id: user.branch_id,
         branch_name: user.branch_name,
+        governorate_id: user.governorate_id || null,
         token,
       };
     } catch (err) {
@@ -73,8 +74,8 @@ class AuthService {
       last_name = isString(last_name, "يرجى إدخال اسم ثاني صحيح");
       phone = isString(phone, "رقم الهاتف مطلوب");
       password = isString(password, "كلمة المرور مطلوبة");
-      // question = isString(question, "السؤال مطلوب");
-      // answer = isString(answer, "الإجابة مطلوبة");
+      question = isString(question, "السؤال مطلوب");
+      answer = isString(answer, "الإجابة مطلوبة");
 
       const existing = await authRepo.findUserByPhone(phone);
 
@@ -94,7 +95,7 @@ class AuthService {
       }
 
       const hash = await bcrypt.hash(password, 10);
-      // const answerHash = await bcrypt.hash(answer, 10);
+       const answerHash = await bcrypt.hash(answer, 10);
       const id = randomUUID();
 
       await db.runInTransaction(async (client) => {
@@ -106,7 +107,7 @@ class AuthService {
           passwordHash: hash,
           role_id: role.id,
           question,
-          answer: answer,
+          answer: answerHash,
           client,
         });
 

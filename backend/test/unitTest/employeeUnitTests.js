@@ -394,7 +394,7 @@ describe('Employee unit tests', () => {
     const customerId = createCustomer.body.data.id;
 
     const password = 'custpass123';
-    const register = await api.request(api.app).post('/api/auth/register').send({
+    const register = await api.registerCustomer({
       first_name: 'Cust',
       last_name: 'Apply',
       phone: '0997000070',

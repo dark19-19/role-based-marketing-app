@@ -124,7 +124,7 @@ describe('Auth unit tests', () => {
     expect(before.rows[0]?.phone).toBe(phone);
 
     const password = 'custpass123';
-    const register = await api.request(api.app).post('/api/auth/register').send({
+    const register = await api.registerCustomer({
       first_name: 'Internal',
       last_name: 'Customer',
       phone,
@@ -140,6 +140,31 @@ describe('Auth unit tests', () => {
     expect(after.rows[0]?.user_id).toBe(newUserId);
     expect(after.rows[0]?.has_account).toBe(true);
     expect(after.rows[0]?.customer_origin).toBe('INTERNAL_THEN_CLAIMED');
+
+    const login = await api.login({ phone, password });
+    expect(login.status).toBe(200);
+    expect(login.body.success).toBe(true);
+    expect(login.body.data.role).toBe('CUSTOMER');
+    expect(login.body.data.governorate_id).toBe(governorateId);
+  });
+
+  test('self-registered customer login returns governorate_id as null', async () => {
+    const phone = '0999000222';
+    const password = 'custpass123';
+
+    const register = await api.registerCustomer({
+      first_name: 'Self',
+      last_name: 'Registered',
+      phone,
+      password,
+    });
+    expect(register.status).toBe(201);
+
+    const login = await api.login({ phone, password });
+    expect(login.status).toBe(200);
+    expect(login.body.success).toBe(true);
+    expect(login.body.data.role).toBe('CUSTOMER');
+    expect(login.body.data.governorate_id).toBeNull();
   });
 
   // test('customer register requires question and answer', async () => {

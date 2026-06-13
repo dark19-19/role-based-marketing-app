@@ -754,8 +754,13 @@ class OrderService {
         filters,
       });
 
+      const normalizedOrders = result.data.map((order) => ({
+        ...order,
+        items: Array.isArray(order.items) ? order.items : [],
+      }));
+
       return {
-        data: result.data,
+        data: normalizedOrders,
         pagination: {
           total: result.total,
           page,

@@ -8,8 +8,8 @@ class AuthController {
         last_name,
         phone,
         password,
-        //  question,
-        // answer
+          question,
+         answer
       } =
         req.body || {};
 
@@ -18,8 +18,8 @@ class AuthController {
         last_name,
         phone,
         password,
-        // question,
-        // answer,
+         question,
+         answer,
       });
 
       res.status(201).json({
@@ -117,7 +117,7 @@ class AuthController {
 
   forgotPasswordQuestion = async (req, res) => {
     try {
-      const { phone } = req.body || {};
+      const { phone } = req.params || {};
       const result = await authService.getForgotPasswordQuestion({ phone });
       res.status(200).json({ success: true, data: result });
     } catch (err) {

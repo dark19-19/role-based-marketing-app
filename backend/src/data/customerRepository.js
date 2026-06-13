@@ -321,6 +321,22 @@ class CustomerRepository {
         );
     }
 
+    async updateGovernorateId(customerId, governorateId, client = null) {
+        const queryClient = client || db;
+        const { rows } = await queryClient.query(
+            `
+            UPDATE customers
+            SET governorate_id = $2
+            WHERE id = $1
+              AND governorate_id IS NULL
+              AND is_active = true
+            RETURNING id, governorate_id
+            `,
+            [customerId, governorateId]
+        );
+        return rows[0] || null;
+    }
+
     async getCustomersByMarketerId(employeeId) {
         const { rows } = await db.query(
             `

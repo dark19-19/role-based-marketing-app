@@ -100,6 +100,21 @@ class CustomerController {
 
     }
 
+    async updateMyGovernorate(req, res) {
+        try {
+            const result = await customerService.updateMyGovernorate(req.user, req.body);
+            return res.json({
+                success: true,
+                data: result
+            });
+        } catch (err) {
+            return res.status(400).json({
+                success: false,
+                message: err.message
+            });
+        }
+    }
+
 }
 
 module.exports = new CustomerController();

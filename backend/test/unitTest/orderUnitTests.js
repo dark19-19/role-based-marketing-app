@@ -50,7 +50,7 @@ describe('Order unit tests', () => {
   }
 
   async function registerAndLoginCustomer({ phone, first_name = 'Cust', last_name = 'App', password = 'custpass123' }) {
-    const register = await api.request(api.app).post('/api/auth/register').send({
+    const register = await api.registerCustomer({
       first_name,
       last_name,
       phone,
@@ -581,12 +581,13 @@ describe('Order unit tests', () => {
     });
     const customerLogin = await registerAndLoginCustomer({ phone: customerPhone });
 
-    await factories.createOrder(marketerLogin.body.data.token, {
+    const created = await factories.createOrder(marketerLogin.body.data.token, {
       customer_id: customerId,
       branch_id: branchId,
       sold_price: 10,
       items: [{ product_id: productId, quantity: 1 }],
     });
+    const createdOrderId = created.body.data.id;
 
     const tokens = [
       adminToken,
@@ -602,6 +603,18 @@ describe('Order unit tests', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.body.data)).toBe(true);
+      const listedOrder = res.body.body.data.find((order) => order.id === createdOrderId);
+      expect(listedOrder).toBeDefined();
+      expect(Array.isArray(listedOrder.items)).toBe(true);
+      expect(listedOrder.items.length).toBeGreaterThan(0);
+      expect(listedOrder.items[0]).toEqual(
+        expect.objectContaining({
+          product_name: expect.any(String),
+          quantity: 1,
+        }),
+      );
+      expect(listedOrder.order_source).toBe('STAFF');
+      expect(['LEGACY', 'COMPANY_ONLY', 'HIERARCHY']).toContain(listedOrder.commission_mode);
     }
 
     const invalidToken = await api.request(api.app)

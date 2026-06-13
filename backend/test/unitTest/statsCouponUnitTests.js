@@ -59,7 +59,7 @@ describe('Stats coupon unit tests', () => {
     });
 
     const password = 'custpass123';
-    const register = await api.request(api.app).post('/api/auth/register').send({
+    const register = await api.registerCustomer({
       first_name: 'Stat',
       last_name: 'Customer',
       phone: '0999222000',

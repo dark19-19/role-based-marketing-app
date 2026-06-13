@@ -1,6 +1,8 @@
 const employeeRepository = require('../data/employeeRepository');
 const customerRepository = require('../data/customerRepository');
 const orderRepository = require('../data/orderRepository');
+const governorateRepository = require('../data/governorateRepository');
+const { isUuid } = require('../helpers/GeneralHelper');
 
 class CustomerService {
 
@@ -147,6 +149,41 @@ class CustomerService {
             orders: ordersWithItems
         };
 
+    }
+
+    async updateMyGovernorate(user, payload) {
+        const governorate_id = isUuid(payload?.governorate_id, 'معرف المحافظة غير صحيح');
+
+        const customer = await customerRepository.findByUserIdWithActive(user.id);
+        if (!customer) {
+            throw new Error('Customer not found');
+
+        }
+
+        if (customer.governorate_id) {
+            throw new Error('Governorate is already set');
+
+        }
+
+        if (customer.customer_origin !== 'SELF_REGISTERED') {
+            throw new Error('Cannot update governorate for this customer');
+
+        }
+
+        const governorate = await governorateRepository.findById(governorate_id);
+        if (!governorate) {
+            throw new Error('المحافظة غير موجودة');
+        }
+
+        const updated = await customerRepository.updateGovernorateId(
+            customer.id,
+            governorate_id
+        );
+        if (!updated) {
+            throw new Error('Failed to update governorate');
+        }
+
+        return { id: customer.id, governorate_id: updated.governorate_id };
     }
 
 }

@@ -249,6 +249,8 @@ class OrderRepository {
                     g.name AS governorate,
 
                     ro.status,
+                    ro.order_source,
+                    ro.commission_mode,
                     ro.coupon_id,
                     ro.discount_percentage,
                     ro.discount_amount,
@@ -286,6 +288,8 @@ class OrderRepository {
                     g.name AS governorate,
 
                     o.status,
+                    o.order_source,
+                    o.commission_mode,
                     o.coupon_id,
                     o.discount_percentage,
                     o.discount_amount,
@@ -311,6 +315,35 @@ class OrderRepository {
     }
 
     const { rows } = await db.query(mainQuery, params);
+
+    const orderIds = rows.map((row) => row.id);
+    let itemsByOrderId = new Map();
+
+    if (orderIds.length > 0) {
+      const { rows: itemRows } = await db.query(
+        `
+        SELECT
+          oi.order_id,
+          p.name AS product_name,
+          oi.quantity
+        FROM order_items oi
+        JOIN products p ON p.id = oi.product_id
+        WHERE oi.order_id = ANY($1)
+        ORDER BY oi.order_id, p.name
+      `,
+        [orderIds],
+      );
+
+      itemsByOrderId = itemRows.reduce((acc, item) => {
+        const existing = acc.get(item.order_id) || [];
+        existing.push({
+          product_name: item.product_name,
+          quantity: item.quantity,
+        });
+        acc.set(item.order_id, existing);
+        return acc;
+      }, new Map());
+    }
 
     // 🎯 Count query (similar logic but without LIMIT/OFFSET)
     let countQuery;
@@ -443,7 +476,10 @@ class OrderRepository {
     const countRes = await db.query(countQuery, countParams);
 
     return {
-      data: rows,
+      data: rows.map((row) => ({
+        ...row,
+        items: itemsByOrderId.get(row.id) || [],
+      })),
       total: parseInt(countRes.rows[0].count),
     };
   }

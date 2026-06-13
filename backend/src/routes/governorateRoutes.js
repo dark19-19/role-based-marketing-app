@@ -35,6 +35,7 @@ router.get(
     "SUPERVISOR",
     "MARKETER",
     "BRANCH_MANAGER",
+    "CUSTOMER",
   ]),
   governorateController.list,
 );

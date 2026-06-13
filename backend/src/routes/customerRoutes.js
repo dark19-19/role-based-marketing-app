@@ -35,4 +35,11 @@ router.get(
     customerController.getById
 );
 
+router.patch(
+  "/customers/me/governorate",
+  authMiddleware,
+  requireRole(["CUSTOMER"]),
+  customerController.updateMyGovernorate,
+);
+
 module.exports = router;

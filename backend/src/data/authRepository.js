@@ -14,12 +14,14 @@ class AuthRepository {
         r.name as role,
         e.id as employee_id,
         e.branch_id,
-        g.name as branch_name
+        g.name as branch_name,
+        c.governorate_id
       FROM users u
       LEFT JOIN roles r ON r.id = u.role_id
       LEFT JOIN employees e ON e.user_id = u.id
       LEFT JOIN branches b ON b.id = e.branch_id
       LEFT JOIN governorates g ON g.id = b.governorate_id
+      LEFT JOIN customers c ON c.user_id = u.id
       WHERE u.phone = $1
     `;
 
@@ -52,12 +54,14 @@ class AuthRepository {
         r.name as role,
         e.id as employee_id,
         e.branch_id,
-        g.name as branch_name
+        g.name as branch_name,
+        c.governorate_id
       FROM users u
       LEFT JOIN roles r ON r.id = u.role_id
       LEFT JOIN employees e ON e.user_id = u.id
       LEFT JOIN branches b ON b.id = e.branch_id
       LEFT JOIN governorates g ON g.id = b.governorate_id
+      LEFT JOIN customers c ON c.user_id = u.id
       WHERE u.id = $1
     `;
         const { rows } = await db.query(sql, [user_id]);
