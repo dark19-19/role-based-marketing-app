@@ -132,6 +132,21 @@ class AdminController {
     }
   };
 
+  resetCustomerPassword = async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const { newPassword } = req.body || {};
+      const result = await adminService.resetCustomerPassword({
+        adminUser: req.user,
+        customerId,
+        newPassword,
+      });
+      res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  };
+
   verifyUploadsStorage = async (_req, res) => {
     try {
       const legacyUploadsPath = getDefaultLocalUploadsRoot();

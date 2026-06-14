@@ -45,7 +45,7 @@ class CustomerRepository {
 
     }
 
-    async listPaginated({ page = 1, limit = 20, search = null, employeeId = null, role = null, userId = null }) {
+    async listPaginated({ page = 1, limit = 20, search = null, employeeId = null, role = null, userId = null, filterType = 'all' }) {
 
         const offset = (page - 1) * limit;
 
@@ -66,6 +66,12 @@ class CustomerRepository {
             whereConditions.push(`c.referred_by = $${paramIndex}`);
             params.push(employeeId);
             paramIndex++;
+        }
+
+        if (filterType === 'insider') {
+            whereConditions.push(`c.user_id IS NULL`);
+        } else if (filterType === 'outsider') {
+            whereConditions.push(`c.user_id IS NOT NULL`);
         }
 
         const whereClause = `WHERE ${whereConditions.join(' AND ')}`;

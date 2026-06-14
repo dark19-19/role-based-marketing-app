@@ -8,6 +8,7 @@ const { isString } = require("../helpers/GeneralHelper");
 const authRepo = require("../data/authRepository");
 const roleRepo = require("../data/roleRepository");
 const employeeService = require("./employeeService");
+const customerRepo = require("../data/customerRepository");
 
 class AdminService {
   async registerAdmin({ first_name, last_name, phone, password }) {
@@ -63,6 +64,32 @@ class AdminService {
       // Revoke all tokens for target user to invalidate existing sessions
       await userRepo.revokeAllTokensForUser(targetUserId);
       return { message: "تم إعادة تعيين كلمة المرور بنجاح" };
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async resetCustomerPassword({ adminUser, customerId, newPassword }) {
+    try {
+      if (!adminUser || adminUser.role !== "ADMIN") {
+        throw new Error("ليس لديك صلاحية لتغيير كلمة سر العميل");
+      }
+      if (
+        !newPassword ||
+        typeof newPassword !== "string" ||
+        newPassword.trim().length === 0
+      ) {
+        throw new Error("كلمة المرور الجديدة مطلوبة");
+      }
+      const customer = await customerRepo.findById(customerId);
+      if (!customer) {
+        throw new Error("العميل غير موجود");
+      }
+      const targetUserId = customer.user_id;
+      if (!targetUserId) {
+        throw new Error("هذا العميل ليس لديه حساب ولا يمكن تغيير كلمة مروره");
+      }
+      return this.resetUserPassword({ adminUser, targetUserId, newPassword });
     } catch (err) {
       throw err;
     }

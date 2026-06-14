@@ -64,7 +64,8 @@ class CustomerService {
             search: query.search || null,
             employeeId: null, // No filtering by employee for the main list
             role: user.role,
-            userId: user.id
+            userId: user.id,
+            filterType: query.filter_type || 'all'
         });
 
         const pages = Math.ceil(result.total / limit);
@@ -105,7 +106,8 @@ class CustomerService {
             search: query.search || null,
             employeeId: employee.id, // Filter by current user's employee ID
             role: user.role,
-            userId: user.id
+            userId: user.id,
+            filterType: query.filter_type || 'all'
         });
 
         const pages = Math.ceil(result.total / limit);

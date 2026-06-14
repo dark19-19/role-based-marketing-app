@@ -46,6 +46,13 @@ router.patch(
   adminController.resetUserPassword,
 );
 
+router.patch(
+  "/admin/customers/:customerId/password",
+  authMiddleware,
+  roleMiddleware(["ADMIN"]),
+  adminController.resetCustomerPassword,
+);
+
 router.get(
   "/admin/uploads/verify",
   authMiddleware,
