@@ -204,6 +204,7 @@ class CustomerRepository {
                 SELECT
                     c.id AS customer_id,
                     c.user_id,
+                    c.governorate_id,
                     COALESCE(c.phone, u.phone) AS phone,
                     COALESCE(c.first_name, u.first_name) AS first_name,
                     COALESCE(c.last_name, u.last_name) AS last_name

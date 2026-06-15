@@ -87,6 +87,7 @@ class AuthService {
       if (existingCustomer && existingCustomer.user_id) {
         throw new Error("رقم الهاتف مستخدم مسبقاً");
       }
+      const governorate_id = existingCustomer?.governorate_id || null;
 
       const role = await roleRepo.findByName("CUSTOMER");
 
@@ -164,6 +165,7 @@ class AuthService {
         phone,
         role: "CUSTOMER",
         token,
+        governorate_id,
       };
     } catch (err) {
       throw err;
