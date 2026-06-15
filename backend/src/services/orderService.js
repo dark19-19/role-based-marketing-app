@@ -16,6 +16,8 @@ const orderCommentService = require("../services/orderCommentService");
 const couponService = require("./couponService");
 const config = require("../config");
 const cacheAside = require("../patterns/CacheAside");
+const ORDER_SOURCES = require("../utils/orderSources");
+const COMMISSION_MODES = require("../utils/orderCommissionModes");
 
 class OrderService {
   async createOrder(user, payload, client) {
@@ -48,13 +50,13 @@ class OrderService {
     // 2️⃣ determine marketer_id + commission snapshot
     let marketerId = null;
     let orderSource = null;
-    let commissionMode = "LEGACY";
+    let commissionMode = COMMISSION_MODES.LEGACY;
     let commissionEmployeeId = null;
 
     if (user.role === "CUSTOMER") {
       marketerId = null;
-      orderSource = "CUSTOMER_APP";
-      commissionMode = "COMPANY_ONLY";
+      orderSource = ORDER_SOURCES.CUSTOMER_APP;
+      commissionMode = COMMISSION_MODES.COMPANY_ONLY;
       commissionEmployeeId = null;
     } else {
       const employee = await employeeRepository.findByUserId(user.id);
@@ -64,14 +66,15 @@ class OrderService {
       }
 
       marketerId = employee.id;
-      orderSource = "STAFF";
+      orderSource = ORDER_SOURCES.STAFF;
 
       const hasAccount = customer.has_account === true || !!customer.user_id;
       if (hasAccount) {
         commissionMode = config.staffOrderAccountCustomerCommissionMode;
-        commissionEmployeeId = commissionMode === "HIERARCHY" ? employee.id : null;
+        commissionEmployeeId =
+          commissionMode === COMMISSION_MODES.HIERARCHY ? employee.id : null;
       } else {
-        commissionMode = "HIERARCHY";
+        commissionMode = COMMISSION_MODES.HIERARCHY;
         commissionEmployeeId = employee.id;
       }
     }
@@ -538,11 +541,11 @@ class OrderService {
       marketer,
     });
 
-    const commissionMode = order.commission_mode || "LEGACY";
+    const commissionMode = order.commission_mode || COMMISSION_MODES.LEGACY;
     const commissionEmployeeId =
-      commissionMode === "HIERARCHY"
+      commissionMode === COMMISSION_MODES.HIERARCHY
         ? order.commission_employee_id || order.marketer_id
-        : commissionMode === "LEGACY"
+        : commissionMode === COMMISSION_MODES.LEGACY
           ? order.marketer_id
           : null;
 
@@ -559,7 +562,7 @@ class OrderService {
 
 
     // If no marketer or commission mode is company-only, ALL profits go to company
-    if (commissionMode === "COMPANY_ONLY" || !marketerEmployee) {
+    if (commissionMode === COMMISSION_MODES.COMPANY_ONLY || !marketerEmployee) {
       const totalProfit = Number(order.total_sold_price || 0);
       const admin = await adminRepo.getCompanyAccount();
       const distributions = [];

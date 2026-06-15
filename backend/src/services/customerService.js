@@ -123,7 +123,7 @@ class CustomerService {
         };
     }
 
-    async getById(customerId) {
+    async getById(user, customerId) {
 
         // 1️⃣ customer data
         const customer = await customerRepository.findById(customerId);
@@ -133,7 +133,8 @@ class CustomerService {
         }
 
         // 2️⃣ orders
-        const orders = await orderRepository.getOrdersByCustomerId(customerId);
+        const excludeCustomerApp = ['MARKETER', 'SUPERVISOR', 'GENERAL_SUPERVISOR'].includes(user?.role);
+        const orders = await orderRepository.getOrdersByCustomerId(customerId, { excludeCustomerApp });
 
         const orderIds = orders.map(o => o.id);
 

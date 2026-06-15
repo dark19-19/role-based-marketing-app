@@ -82,7 +82,7 @@ class CustomerController {
 
         try {
 
-            const customer = await customerService.getById(req.params.id);
+            const customer = await customerService.getById(req.user, req.params.id);
 
             res.json({
                 success: true,

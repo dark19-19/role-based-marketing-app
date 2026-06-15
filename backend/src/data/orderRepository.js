@@ -1,5 +1,7 @@
 const db = require("../helpers/DBHelper");
 const { randomUUID } = require("crypto");
+const COMMISSION_MODES = require("../utils/orderCommissionModes");
+const ORDER_SOURCES = require("../utils/orderSources");
 
 class OrderRepository {
   async create(order, client) {
@@ -41,7 +43,7 @@ class OrderRepository {
         order.sold_price,
         order.notes,
         order.order_source || null,
-        order.commission_mode || 'LEGACY',
+        order.commission_mode || COMMISSION_MODES.LEGACY,
         order.commission_employee_id || null,
       ],
     );
@@ -608,12 +610,21 @@ class OrderRepository {
     };
   }
 
-  async getOrdersByCustomerId(customerId) {
+  async getOrdersByCustomerId(customerId, { excludeCustomerApp = false } = {}) {
+    let where = `WHERE customer_id = $1`;
+    const params = [customerId];
+
+    if (excludeCustomerApp) {
+      where += ` AND COALESCE(order_source, $2) <> $3`;
+      params.push(ORDER_SOURCES.STAFF, ORDER_SOURCES.CUSTOMER_APP);
+    }
+
     const { rows } = await db.query(
       `
     SELECT
       id,
       status,
+      order_source,
       coupon_id,
       discount_percentage,
       discount_amount,
@@ -621,10 +632,10 @@ class OrderRepository {
       total_sold_price,
       created_at
     FROM orders
-    WHERE customer_id = $1
+    ${where}
     ORDER BY created_at DESC
   `,
-      [customerId],
+      params,
     );
 
     return rows;

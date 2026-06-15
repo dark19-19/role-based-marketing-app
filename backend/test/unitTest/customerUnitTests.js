@@ -1,6 +1,7 @@
 const { randomUUID } = require('crypto');
 const api = require('../utils/apiUtils');
 const factories = require('../utils/factories');
+const dbUtils = require('../utils/dbUtils');
 
 describe('Customer unit tests', () => {
   test('(Marketer, Supervisor, General Supervisor) can create a new customer', async () => {
@@ -176,6 +177,99 @@ describe('Customer unit tests', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.id).toBe(customerId);
+    }
+  });
+
+  test('(Marketer, Supervisor, General Supervisor) cannot see CUSTOMER_APP orders in customer details', async () => {
+    const adminLogin = await api.loginAdmin();
+    const adminToken = adminLogin.body.data.token;
+
+    const branchId = await factories.createBranch();
+    const chain = await factories.createStaffChain({
+      token: adminToken,
+      branchId,
+      phoneBase: 990025000,
+    });
+
+    const governorateId = await factories.getAnyGovernorateId();
+
+    const marketerLogin = await api.login({
+      phone: chain.marketer.phone,
+      password: chain.marketer.password,
+    });
+    const marketerToken = marketerLogin.body.data.token;
+
+    const phone = '0991000100';
+    const password = 'custpass123';
+
+    const customerCreate = await api.request(api.app)
+      .post('/api/customers')
+      .set(api.authHeader(marketerToken))
+      .send({
+        first_name: 'Cust',
+        last_name: 'Filter',
+        phone,
+        password,
+        governorate_id: governorateId,
+      });
+    expect(customerCreate.status).toBe(200);
+    const customerId = customerCreate.body.data.id;
+
+    const register = await api.registerCustomer({
+      first_name: 'Cust',
+      last_name: 'Filter',
+      phone,
+      password,
+    });
+    expect(register.status).toBe(201);
+
+    const customerLogin = await api.login({ phone, password });
+    expect(customerLogin.status).toBe(200);
+    const customerToken = customerLogin.body.data.token;
+
+    const deliveryPointId = await factories.createDeliveryPoint(branchId);
+    const categoryId = await dbUtils.createCategoryDirect('Cat_Filter');
+    const productId = await dbUtils.createProductDirect({
+      name: 'Prod_Filter',
+      categoryId,
+      price: 10,
+      quantity: 100,
+    });
+
+    const staffOrder = await factories.createOrder(marketerToken, {
+      customer_id: customerId,
+      branch_id: branchId,
+      sold_price: 10,
+      items: [{ product_id: productId, quantity: 1 }],
+    });
+    expect(staffOrder.status).toBe(200);
+    const staffOrderId = staffOrder.body.data.id;
+
+    const customerOrder = await factories.createOrder(customerToken, {
+      branch_id: branchId,
+      delivery_point_id: deliveryPointId,
+      sold_price: 10,
+      items: [{ product_id: productId, quantity: 1 }],
+    });
+    expect(customerOrder.status).toBe(200);
+    const customerOrderId = customerOrder.body.data.id;
+
+    const tokens = [
+      marketerToken,
+      (await api.login({ phone: chain.supervisor.phone, password: chain.supervisor.password })).body.data.token,
+      (await api.login({ phone: chain.generalSupervisor.phone, password: chain.generalSupervisor.password })).body.data.token,
+    ];
+
+    for (const token of tokens) {
+      const res = await api.request(api.app)
+        .get(`/api/customers/${customerId}`)
+        .set(api.authHeader(token));
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data.orders)).toBe(true);
+      const orderIds = res.body.data.orders.map((o) => o.id);
+      expect(orderIds).toContain(staffOrderId);
+      expect(orderIds).not.toContain(customerOrderId);
     }
   });
 

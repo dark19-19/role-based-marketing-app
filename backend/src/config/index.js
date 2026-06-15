@@ -1,5 +1,6 @@
 const dotenv = require('dotenv');
 dotenv.config();
+const COMMISSION_MODES = require('../utils/orderCommissionModes');
 
 function requiredEnv(name) {
   const val = process.env[name];
@@ -112,12 +113,15 @@ function parseTrustProxy() {
 }
 
 function parseStaffOrderAccountCustomerCommissionMode() {
-  const raw = optionalEnv('STAFF_ORDER_ACCOUNT_CUSTOMER_COMMISSION_MODE', 'COMPANY_ONLY');
+  const raw = optionalEnv(
+    'STAFF_ORDER_ACCOUNT_CUSTOMER_COMMISSION_MODE',
+    COMMISSION_MODES.COMPANY_ONLY,
+  );
   const v = String(raw).trim();
-  const allowed = new Set(['COMPANY_ONLY', 'HIERARCHY']);
+  const allowed = new Set([COMMISSION_MODES.COMPANY_ONLY, COMMISSION_MODES.HIERARCHY]);
   if (!allowed.has(v)) {
     throw new Error(
-      `Invalid STAFF_ORDER_ACCOUNT_CUSTOMER_COMMISSION_MODE: ${v} (expected COMPANY_ONLY|HIERARCHY)`,
+      `Invalid STAFF_ORDER_ACCOUNT_CUSTOMER_COMMISSION_MODE: ${v} (expected ${COMMISSION_MODES.COMPANY_ONLY}|${COMMISSION_MODES.HIERARCHY})`,
     );
   }
   return v;

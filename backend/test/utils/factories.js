@@ -16,6 +16,14 @@ async function createBranch() {
   return await dbUtils.createBranch(governorateId);
 }
 
+async function createDeliveryPoint(branchId) {
+  return await dbUtils.createDeliveryPointDirect({
+    branchId,
+    name: `DP_${randomUUID().slice(0, 6)}`,
+    fee: 0,
+  });
+}
+
 async function adminCreateUser(token, payload) {
   return await api.request(api.app)
     .post('/api/admin/create-user')
@@ -108,6 +116,7 @@ async function createStaffChain({ token, branchId, phoneBase = 990000100 }) {
 module.exports = {
   getAnyGovernorateId,
   createBranch,
+  createDeliveryPoint,
   adminCreateUser,
   createEmployee,
   createOrder,
