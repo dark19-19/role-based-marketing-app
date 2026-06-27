@@ -55,6 +55,15 @@ describe('Wallet unit tests', () => {
     return await dbUtils.getEmployeeIdByUserId(adminUserId);
   }
 
+  async function getUnreadCount(token) {
+    const res = await api.request(api.app)
+      .get('/api/notifications/unread-count')
+      .set(api.authHeader(token));
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    return Number(res.body.data.count);
+  }
+
   test('each role can show the summary of his balance transactions', async () => {
     const setup = await setupAllTokens();
 
@@ -116,5 +125,106 @@ describe('Wallet unit tests', () => {
       const types = res.body.data.map((x) => x.type);
       expect(types).toEqual(expect.arrayContaining(['BALANCE', 'REQUESTED', 'WITHDREW']));
     }
+  });
+
+  test('admin can add BONUS to employee wallet and it affects balance', async () => {
+    const setup = await setupAllTokens();
+
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10, type: 'BALANCE' });
+
+    const beforeUnread = await getUnreadCount(setup.tokens.marketer);
+
+    const adjust = await api.request(api.app)
+      .post('/api/wallet/adjust')
+      .set(api.authHeader(setup.tokens.admin))
+      .send({
+        employee_id: setup.chain.marketer.employeeId,
+        amount: 5,
+        type: 'BONUS',
+      });
+    expect(adjust.status).toBe(200);
+    expect(adjust.body.success).toBe(true);
+
+    const afterUnread = await getUnreadCount(setup.tokens.marketer);
+    expect(afterUnread).toBe(beforeUnread + 1);
+
+    const summaryRes = await api.request(api.app)
+      .get('/api/wallet/summary')
+      .set(api.authHeader(setup.tokens.marketer));
+    expect(summaryRes.status).toBe(200);
+    const summary = normalizeSummary(summaryRes.body.data);
+    expect(summary.currentBalance).toBe(15);
+
+    const txRes = await api.request(api.app)
+      .get('/api/wallet/transactions')
+      .set(api.authHeader(setup.tokens.marketer));
+    expect(txRes.status).toBe(200);
+    const bonusTx = txRes.body.data.find((t) => t.type === 'BONUS');
+    expect(bonusTx).toBeTruthy();
+    expect(bonusTx.order_id).toBeNull();
+  });
+
+  test('admin can add DISCOUNT to employee wallet and it affects balance', async () => {
+    const setup = await setupAllTokens();
+
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10, type: 'BALANCE' });
+
+    const adjust = await api.request(api.app)
+      .post('/api/wallet/adjust')
+      .set(api.authHeader(setup.tokens.admin))
+      .send({
+        employee_id: setup.chain.marketer.employeeId,
+        amount: 4,
+        type: 'DISCOUNT',
+      });
+    expect(adjust.status).toBe(200);
+    expect(adjust.body.success).toBe(true);
+
+    const summaryRes = await api.request(api.app)
+      .get('/api/wallet/summary')
+      .set(api.authHeader(setup.tokens.marketer));
+    expect(summaryRes.status).toBe(200);
+    const summary = normalizeSummary(summaryRes.body.data);
+    expect(summary.currentBalance).toBe(6);
+
+    const txRes = await api.request(api.app)
+      .get('/api/wallet/transactions')
+      .set(api.authHeader(setup.tokens.marketer));
+    expect(txRes.status).toBe(200);
+    const discountTx = txRes.body.data.find((t) => t.type === 'DISCOUNT');
+    expect(discountTx).toBeTruthy();
+    expect(discountTx.order_id).toBeNull();
+  });
+
+  test('admin cannot add DISCOUNT greater than current balance', async () => {
+    const setup = await setupAllTokens();
+
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 3, type: 'BALANCE' });
+
+    const adjust = await api.request(api.app)
+      .post('/api/wallet/adjust')
+      .set(api.authHeader(setup.tokens.admin))
+      .send({
+        employee_id: setup.chain.marketer.employeeId,
+        amount: 4,
+        type: 'DISCOUNT',
+      });
+    expect(adjust.status).toBe(400);
+    expect(adjust.body.success).toBe(false);
+  });
+
+  test('admin cannot adjust wallet for unauthorized employee roles', async () => {
+    const setup = await setupAllTokens();
+
+    const adjust = await api.request(api.app)
+      .post('/api/wallet/adjust')
+      .set(api.authHeader(setup.tokens.admin))
+      .send({
+        employee_id: setup.chain.branchManager.employeeId,
+        amount: 2,
+        type: 'BONUS',
+      });
+    expect(adjust.status).toBe(400);
+    expect(adjust.body.success).toBe(false);
   });
 });

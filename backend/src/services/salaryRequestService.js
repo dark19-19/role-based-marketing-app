@@ -41,14 +41,22 @@ class SalaryRequestService {
 
             // Robust notification block
             try {
-                const company = await adminRepo.getCompanyAccount();
-                if (company && company.user_id) {
-                    await notificationHelper.notify(company.user_id, 'طلب راتب جديد', `تم استقبال طلب راتب جديد بقيمة ${totalAmount}، يرجى مراجعة طلبات الرواتب.`);
+                const adminUserIds = await adminRepo.getAdminUserIds();
+                if (adminUserIds.length > 0) {
+                    await notificationHelper.notifyMany(
+                        adminUserIds,
+                        'طلب راتب جديد',
+                        `تم استقبال طلب راتب جديد بقيمة ${totalAmount}، يرجى مراجعة طلبات الرواتب.`,
+                    );
                 }
 
-                const branchManager = await branchRepo.getBranchManager(employee.branch_id);
-                if (branchManager && branchManager.user_id) {
-                    await notificationHelper.notify(branchManager.user_id, 'طلب راتب جديد', `تم استقبال طلب راتب جديد بقيمة ${totalAmount} لأحد الموظفين في فرعك.`);
+                const branchManagerUserIds = await branchRepo.getBranchManagerUserIds(employee.branch_id);
+                if (branchManagerUserIds.length > 0) {
+                    await notificationHelper.notifyMany(
+                        branchManagerUserIds,
+                        'طلب راتب جديد',
+                        `تم استقبال طلب راتب جديد بقيمة ${totalAmount} لأحد الموظفين في فرعك.`,
+                    );
                 }
             } catch (notifyErr) {
                 console.error("[SalaryRequestService] Notification logic error (ignored):", notifyErr.message);

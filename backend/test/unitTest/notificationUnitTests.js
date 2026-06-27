@@ -47,6 +47,16 @@ describe('Notification unit tests', () => {
     return Number(res.body.data.count);
   }
 
+  async function getLatestNotification(token) {
+    const res = await api.request(api.app)
+      .get('/api/notifications?page=1&limit=1')
+      .set(api.authHeader(token));
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data.data)).toBe(true);
+    return res.body.data.data[0] || null;
+  }
+
   async function addOrderComment({ token, orderId, content }) {
     const res = await api.request(api.app)
       .post(`/api/orders/${orderId}/comments`)
@@ -110,11 +120,22 @@ describe('Notification unit tests', () => {
     await addOrderComment({ token: marketerLogin.body.data.token, orderId, content: 'MK comment 1' });
     const bmAfterC1 = await getUnreadCount(bmLogin.body.data.token);
     expect(bmAfterC1).toBe(bmBeforeC1 + 1);
+    const bmNotif = await getLatestNotification(bmLogin.body.data.token);
+    expect(bmNotif.message).toContain(orderId.slice(0, 5));
+    expect(bmNotif.message).toContain('meta-order_id=');
+    expect(bmNotif.message).toContain('branch_name=');
+    expect(bmNotif.message).toContain('governorate_name=');
 
     const mkBeforeC2 = await getUnreadCount(marketerLogin.body.data.token);
     await addOrderComment({ token: bmLogin.body.data.token, orderId, content: 'BM comment 1' });
     const mkAfterC2 = await getUnreadCount(marketerLogin.body.data.token);
     expect(mkAfterC2).toBe(mkBeforeC2 + 1);
+    const mkNotif = await getLatestNotification(marketerLogin.body.data.token);
+    expect(mkNotif.message).toContain(orderId.slice(0, 5));
+    expect(mkNotif.message).toContain('meta-order_id=');
+    expect(mkNotif.message).toContain('branch_name=');
+    expect(mkNotif.message).toContain('delivery_point_name=');
+    expect(mkNotif.message).toContain('customer_name=');
 
     const bmBeforeC3 = await getUnreadCount(bmLogin.body.data.token);
     await addOrderComment({ token: marketerLogin.body.data.token, orderId, content: 'MK comment 2' });
@@ -162,11 +183,22 @@ describe('Notification unit tests', () => {
     await addOrderComment({ token: supervisorLogin.body.data.token, orderId, content: 'SV comment 1' });
     const bmAfterC1 = await getUnreadCount(bmLogin.body.data.token);
     expect(bmAfterC1).toBe(bmBeforeC1 + 1);
+    const bmNotif = await getLatestNotification(bmLogin.body.data.token);
+    expect(bmNotif.message).toContain(orderId.slice(0, 5));
+    expect(bmNotif.message).toContain('meta-order_id=');
+    expect(bmNotif.message).toContain('branch_name=');
+    expect(bmNotif.message).toContain('governorate_name=');
 
     const svBeforeC2 = await getUnreadCount(supervisorLogin.body.data.token);
     await addOrderComment({ token: bmLogin.body.data.token, orderId, content: 'BM comment 1' });
     const svAfterC2 = await getUnreadCount(supervisorLogin.body.data.token);
     expect(svAfterC2).toBe(svBeforeC2 + 1);
+    const svNotif = await getLatestNotification(supervisorLogin.body.data.token);
+    expect(svNotif.message).toContain(orderId.slice(0, 5));
+    expect(svNotif.message).toContain('meta-order_id=');
+    expect(svNotif.message).toContain('branch_name=');
+    expect(svNotif.message).toContain('delivery_point_name=');
+    expect(svNotif.message).toContain('customer_name=');
 
     const bmBeforeC3 = await getUnreadCount(bmLogin.body.data.token);
     await addOrderComment({ token: supervisorLogin.body.data.token, orderId, content: 'SV comment 2' });
@@ -214,11 +246,22 @@ describe('Notification unit tests', () => {
     await addOrderComment({ token: gsLogin.body.data.token, orderId, content: 'GS comment 1' });
     const bmAfterC1 = await getUnreadCount(bmLogin.body.data.token);
     expect(bmAfterC1).toBe(bmBeforeC1 + 1);
+    const bmNotif = await getLatestNotification(bmLogin.body.data.token);
+    expect(bmNotif.message).toContain(orderId.slice(0, 5));
+    expect(bmNotif.message).toContain('meta-order_id=');
+    expect(bmNotif.message).toContain('branch_name=');
+    expect(bmNotif.message).toContain('governorate_name=');
 
     const gsBeforeC2 = await getUnreadCount(gsLogin.body.data.token);
     await addOrderComment({ token: bmLogin.body.data.token, orderId, content: 'BM comment 1' });
     const gsAfterC2 = await getUnreadCount(gsLogin.body.data.token);
     expect(gsAfterC2).toBe(gsBeforeC2 + 1);
+    const gsNotif = await getLatestNotification(gsLogin.body.data.token);
+    expect(gsNotif.message).toContain(orderId.slice(0, 5));
+    expect(gsNotif.message).toContain('meta-order_id=');
+    expect(gsNotif.message).toContain('branch_name=');
+    expect(gsNotif.message).toContain('delivery_point_name=');
+    expect(gsNotif.message).toContain('customer_name=');
 
     const bmBeforeC3 = await getUnreadCount(bmLogin.body.data.token);
     await addOrderComment({ token: gsLogin.body.data.token, orderId, content: 'GS comment 2' });

@@ -18,4 +18,11 @@ router.get(
     walletController.getTransactions
 );
 
+router.post(
+    '/adjust',
+    authMiddleware,
+    requireRole(['ADMIN']),
+    walletController.adjustEmployeeWallet
+);
+
 module.exports = router;

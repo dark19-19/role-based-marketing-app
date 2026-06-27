@@ -55,6 +55,18 @@ class AdminRepository {
     return rows[0];
   }
 
+  async getAdminUserIds() {
+    const sql = `
+      SELECT u.id as user_id
+      FROM users u
+      INNER JOIN roles r ON r.id = u.role_id
+      WHERE r.name = 'ADMIN'
+      ORDER BY u.created_at ASC
+    `;
+    const { rows } = await db.query(sql);
+    return rows.map((row) => row.user_id).filter(Boolean);
+  }
+
 }
 
 module.exports = new AdminRepository();

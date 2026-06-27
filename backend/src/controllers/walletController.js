@@ -35,6 +35,21 @@ class WalletController {
             });
         }
     }
+
+    async adjustEmployeeWallet(req, res) {
+        try {
+            const result = await walletService.adjustEmployeeWallet(req.user, req.body);
+            res.json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
 }
 
 module.exports = new WalletController();

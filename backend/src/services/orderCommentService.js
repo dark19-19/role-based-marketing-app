@@ -62,7 +62,16 @@ class OrderCommentService {
     // --- Notification Logic ---
     try {
       const title = "تعليق جديد على الطلب";
-      const message = `قام ${commenterName} بإضافة تعليق على الطلب: ${content.substring(0, 50)}${content.length > 50 ? "..." : ""}`;
+      const orderDetails = await orderRepository.getById(orderId);
+      const baseMessage = this._buildBaseCommentMessage(commenterName, content);
+      const orderOwnerMessage = this._buildOrderOwnerCommentMessage(
+        baseMessage,
+        orderDetails,
+      );
+      const branchManagerMessage = this._buildBranchManagerCommentMessage(
+        baseMessage,
+        orderDetails,
+      );
 
       const branchManagerUserIds = await employeeRepository.getBranchManagerUserIds(order.branch_id);
       const branchManagersToNotify = branchManagerUserIds.filter((id) => id && id !== user.id);
@@ -71,17 +80,21 @@ class OrderCommentService {
         const orderOwnerEmployee = await employeeRepository.findById(order.marketer_id);
         const targetUserId = orderOwnerEmployee?.user_id || null;
         if (targetUserId && targetUserId !== user.id) {
-          await notificationHelper.notify(targetUserId, title, message);
+          await notificationHelper.notify(targetUserId, title, orderOwnerMessage);
         }
       } else {
         if (branchManagersToNotify.length > 0) {
-          await notificationHelper.notifyMany(branchManagersToNotify, title, message);
+          await notificationHelper.notifyMany(
+            branchManagersToNotify,
+            title,
+            branchManagerMessage,
+          );
         }
 
         const marketerEmployee = await employeeRepository.findById(order.marketer_id);
         const marketerUserId = marketerEmployee?.user_id || null;
         if (marketerUserId && marketerUserId !== user.id && !branchManagerUserIds.includes(marketerUserId)) {
-          await notificationHelper.notify(marketerUserId, title, message);
+          await notificationHelper.notify(marketerUserId, title, orderOwnerMessage);
         }
       }
     } catch (notifyErr) {
@@ -93,6 +106,28 @@ class OrderCommentService {
       added_by_name: commenterName,
       added_by_role: commenterRole,
     };
+  }
+
+  _buildBaseCommentMessage(commenterName, content) {
+    return `قام ${commenterName} بإضافة تعليق على الطلب: ${content.substring(0, 50)}${content.length > 50 ? "..." : ""}`;
+  }
+
+  _buildOrderOwnerCommentMessage(baseMessage, orderDetails) {
+    const shortOrderId = this._getShortOrderId(orderDetails?.id);
+    const branchName = orderDetails?.branch_name || "غير محدد";
+    const deliveryPointName = orderDetails?.delivery_point_name || "null";
+    const customerName = orderDetails?.customer_name || "غير محدد";
+    return `${baseMessage}\nmeta-order_id=${shortOrderId},branch_name=${branchName},delivery_point_name=${deliveryPointName},customer_name=${customerName}`;
+  }
+
+  _buildBranchManagerCommentMessage(baseMessage, orderDetails) {
+    const shortOrderId = this._getShortOrderId(orderDetails?.id);
+    const branchName = orderDetails?.branch_name || "غير محدد";
+    return `${baseMessage}\nmeta-order_id=${shortOrderId},branch_name=${branchName}`;
+  }
+
+  _getShortOrderId(orderId) {
+    return typeof orderId === "string" ? orderId.slice(0, 8) : "غير محدد";
   }
 
   /**

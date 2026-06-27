@@ -96,6 +96,15 @@ describe('Salary requests unit tests', () => {
       .send({ transactionId });
   }
 
+  async function getUnreadCount(token) {
+    const res = await api.request(api.app)
+      .get('/api/notifications/unread-count')
+      .set(api.authHeader(token));
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    return Number(res.body.data.count);
+  }
+
   test('admin can show all salary requests', async () => {
     const a = await setupBranchAndChain();
     const b = await setupBranchAndChain();
@@ -208,6 +217,61 @@ describe('Salary requests unit tests', () => {
     expect(sv.status).toBe(201);
     const gs = await createSalaryRequest(setup.tokens.generalSupervisor);
     expect(gs.status).toBe(201);
+  });
+
+  test('new salary request notifies all admins and all branch managers in the employee branch', async () => {
+    const setup = await setupBranchAndChain();
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
+
+    const secondAdminPhone = '0998111000';
+    const secondAdminPassword = 'pass12345';
+    const secondAdmin = await factories.adminCreateUser(setup.adminToken, {
+      first_name: 'Admin',
+      last_name: `Two_${randomUUID().slice(0, 6)}`,
+      phone: secondAdminPhone,
+      password: secondAdminPassword,
+      role: 'ADMIN',
+      branch_id: setup.branchId,
+    });
+    expect(secondAdmin.status).toBe(200);
+
+    const secondBmPhone = '0998111001';
+    const secondBmPassword = 'pass12345';
+    const secondBm = await factories.adminCreateUser(setup.adminToken, {
+      first_name: 'BM',
+      last_name: `Two_${randomUUID().slice(0, 6)}`,
+      phone: secondBmPhone,
+      password: secondBmPassword,
+      role: 'BRANCH_MANAGER',
+      branch_id: setup.branchId,
+    });
+    expect(secondBm.status).toBe(200);
+
+    const firstAdminToken = await freshAdminToken();
+    const secondAdminLogin = await api.login({ phone: secondAdminPhone, password: secondAdminPassword });
+    expect(secondAdminLogin.status).toBe(200);
+
+    const firstBmToken = setup.tokens.branchManager;
+    const secondBmLogin = await api.login({ phone: secondBmPhone, password: secondBmPassword });
+    expect(secondBmLogin.status).toBe(200);
+
+    const admin1Before = await getUnreadCount(firstAdminToken);
+    const admin2Before = await getUnreadCount(secondAdminLogin.body.data.token);
+    const bm1Before = await getUnreadCount(firstBmToken);
+    const bm2Before = await getUnreadCount(secondBmLogin.body.data.token);
+
+    const created = await createSalaryRequest(setup.tokens.marketer);
+    expect(created.status).toBe(201);
+
+    const admin1After = await getUnreadCount(firstAdminToken);
+    const admin2After = await getUnreadCount(secondAdminLogin.body.data.token);
+    const bm1After = await getUnreadCount(firstBmToken);
+    const bm2After = await getUnreadCount(secondBmLogin.body.data.token);
+
+    expect(admin1After).toBe(admin1Before + 1);
+    expect(admin2After).toBe(admin2Before + 1);
+    expect(bm1After).toBe(bm1Before + 1);
+    expect(bm2After).toBe(bm2Before + 1);
   });
 
   test('same roles fails to make salary requests if they do not have wallet transactions with type balance', async () => {

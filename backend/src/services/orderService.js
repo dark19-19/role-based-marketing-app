@@ -91,6 +91,18 @@ class OrderService {
       throw new Error("Branch not found");
     }
 
+      const branchManagerUserIds = await employeeRepository.getBranchManagerUserIds(branch.id);
+     
+
+    // Ensure branchManager is valid ( there is branch managers in this branch)
+    if (!branchManagerUserIds || branchManagerUserIds.length === 0) {
+      throw new Error(`No branch managers found for branch ID: ${branch.id}`);
+    }
+    const branchManagersToNotify = branchManagerUserIds.filter((id) => id && id !== user.id);
+    
+
+
+
     if (user.role === "CUSTOMER" && !delivery_point_id) {
       throw new Error("delivery point is required");
     }
@@ -231,15 +243,10 @@ class OrderService {
       updatedCoupon = await couponRepo.incrementUsedCount(client, coupon.id);
     }
 
-    const branchManager = await branchRepository.getBranchManager(branch.id);
 
-    // Ensure branchManager is valid
-    if (!branchManager) {
-      throw new Error(`No branch manager found for branch ID: ${branch.id}`);
-    }
-
-    await notificationHelper.notify(
-      branchManager,
+   //notify all branch managers about the new order
+    await notificationHelper.notifyMany(
+      branchManagersToNotify,
       "طلب جديد في الفرع",
       "تم إنشاء طلب جديد وتم تحويله إلى فرعكم. يرجى مراجعة الطلب واتخاذ الإجراء المناسب.",
     );

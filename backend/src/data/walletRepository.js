@@ -21,10 +21,36 @@ class WalletRepository {
 
     }
 
+    async createWithClient(client, data) {
+        const id = randomUUID();
+        await client.query(
+            `
+      INSERT INTO wallet_transactions
+      (id, employee_id, order_id, amount, type)
+      VALUES ($1,$2,$3,$4,$5)
+    `,
+            [
+                id,
+                data.employee_id,
+                data.order_id || null,
+                data.amount,
+                data.type || TYPES.BALANCE,
+            ]
+        );
+        return id;
+    }
+
     async getSummary(employeeId) {
         const { rows } = await db.query(`
             SELECT 
-                COALESCE(SUM(CASE WHEN type = 'BALANCE' THEN amount ELSE 0 END), 0) as current_balance,
+                COALESCE(SUM(
+                    CASE
+                        WHEN w.type = 'BALANCE' THEN w.amount
+                        WHEN w.type = 'BONUS' AND srt.transaction_id IS NULL THEN w.amount
+                        WHEN w.type = 'DISCOUNT' AND srt.transaction_id IS NULL THEN -w.amount
+                        ELSE 0
+                    END
+                ), 0) as current_balance,
                 COALESCE(SUM(CASE 
                     WHEN type = 'WITHDREW' THEN amount 
                     WHEN type = 'BONUS' THEN amount 
@@ -37,8 +63,10 @@ class WalletRepository {
                     WHEN type = 'DISCOUNT' THEN -amount 
                     ELSE 0 
                 END), 0) as total_earned
-            FROM wallet_transactions
-            WHERE employee_id = $1
+            FROM wallet_transactions w
+            LEFT JOIN salary_request_transactions srt
+              ON srt.transaction_id = w.id
+            WHERE w.employee_id = $1
         `, [employeeId]);
         
         return rows[0] || { current_balance: 0, total_withdrawn: 0, pending_requests_total: 0, total_earned: 0 };

@@ -32,6 +32,7 @@ class BranchRepository {
       SELECT 
         b.id,
         g.name as governorate,
+        g.id AS governorate_id,
         b.is_active
       FROM branches b
       LEFT JOIN governorates g ON g.id = b.governorate_id
@@ -159,6 +160,21 @@ class BranchRepository {
     `;
     const { rows } = await db.query(sql, [branch_id]);
     return rows[0]?.user_id || null; // Return only the user_id or null
+  }
+
+  async getBranchManagerUserIds(branch_id) {
+    const sql = `
+      SELECT u.id as user_id
+      FROM employees e
+      INNER JOIN users u ON e.user_id = u.id
+      INNER JOIN roles r ON r.id = u.role_id
+      WHERE e.branch_id = $1
+      AND r.name = 'BRANCH_MANAGER'
+      AND e.is_active = true
+      ORDER BY e.created_at ASC
+    `;
+    const { rows } = await db.query(sql, [branch_id]);
+    return rows.map((row) => row.user_id).filter(Boolean);
   }
 }
 

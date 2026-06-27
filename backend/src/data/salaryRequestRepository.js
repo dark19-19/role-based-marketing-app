@@ -36,7 +36,7 @@ class SalaryRequestRepository {
     SELECT *
     FROM wallet_transactions
     WHERE employee_id = $1
-    AND type = 'BALANCE'
+    AND type IN ('BALANCE', 'BONUS')
   `,[employeeId]);
 
         return rows;
