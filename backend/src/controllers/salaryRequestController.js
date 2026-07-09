@@ -60,13 +60,15 @@ class SalaryRequestController {
             const limit = Number(req.query.limit) || 20;
             const status = req.query.status;
             const payment_method = req.query.payment_method;
+            const branch_id = req.query.branch_id;
 
             const result = await salaryService.listPaginated(
                 req.user,
                 page,
                 limit,
                 status,
-                payment_method
+                payment_method,
+                branch_id
             );
 
             res.json({

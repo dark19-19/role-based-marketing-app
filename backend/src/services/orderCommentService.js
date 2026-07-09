@@ -123,7 +123,9 @@ class OrderCommentService {
   _buildBranchManagerCommentMessage(baseMessage, orderDetails) {
     const shortOrderId = this._getShortOrderId(orderDetails?.id);
     const branchName = orderDetails?.branch_name || "غير محدد";
-    return `${baseMessage}\nmeta-order_id=${shortOrderId},branch_name=${branchName}`;
+    const deliveryPointName = orderDetails?.delivery_point_name || "null";
+    const customerName = orderDetails?.customer_name || "غير محدد";
+    return `${baseMessage}\nmeta-order_id=${shortOrderId},branch_name=${branchName},delivery_point_name=${deliveryPointName},customer_name=${customerName}`;
   }
 
   _getShortOrderId(orderId) {

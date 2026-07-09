@@ -5,7 +5,7 @@ class SalaryRequestRepository {
 
     async create(client, employeeId, amount, details = {}) {
 
-        const { full_name, phone_number, address, payment_method, note } = details || {};
+        const { full_name, phone_number, address, payment_method, note, branch_id } = details || {};
         const safeFullName = full_name ?? 'empty';
         const safePhoneNumber = phone_number ?? 'empty';
         const safeAddress = address ?? 'empty';
@@ -21,11 +21,12 @@ class SalaryRequestRepository {
       phone_number,
       address,
       payment_method,
-      note
+      note,
+      branch_id
     )
-    VALUES (gen_random_uuid(), $1, $2, 'PENDING', $3, $4, $5, $6, $7)
+    VALUES (gen_random_uuid(), $1, $2, 'PENDING', $3, $4, $5, $6, $7, $8)
     RETURNING *
-  `,[employeeId, amount, safeFullName, safePhoneNumber, safeAddress, safePaymentMethod, note ?? null]);
+  `,[employeeId, amount, safeFullName, safePhoneNumber, safeAddress, safePaymentMethod, note ?? null, branch_id ?? null]);
 
         return rows[0];
 
@@ -129,7 +130,7 @@ class SalaryRequestRepository {
         );
     }
 
-    async listPaginated({ limit, offset, role, employeeId, branchId, status, paymentMethod }) {
+    async listPaginated({ limit, offset, role, employeeId, branchId, status, paymentMethod, requestBranchId }) {
 
         let conditions = [];
         let values = [];
@@ -145,13 +146,18 @@ class SalaryRequestRepository {
             values.push(paymentMethod);
         }
 
+        if (requestBranchId && requestBranchId !== 'ALL') {
+            conditions.push(`COALESCE(sr.branch_id, e.branch_id) = $${idx++}`);
+            values.push(requestBranchId);
+        }
+
         if (role === 'MARKETER' || role === 'SUPERVISOR' || role === 'GENERAL_SUPERVISOR') {
             conditions.push(`sr.employee_id = $${idx++}`);
             values.push(employeeId);
         }
 
         if (role === 'BRANCH_MANAGER') {
-            conditions.push(`e.branch_id = $${idx++}`);
+            conditions.push(`COALESCE(sr.branch_id, e.branch_id) = $${idx++}`);
             values.push(branchId);
         }
 
@@ -170,6 +176,7 @@ class SalaryRequestRepository {
       sr.payment_method,
       sr.adjustment_type,
       sr.adjustment_amount,
+      COALESCE(sr.branch_id, e.branch_id) AS branch_id,
 
       u.first_name || ' ' || u.last_name AS employeeName,
       u.phone,
@@ -190,7 +197,7 @@ class SalaryRequestRepository {
       ON r.id = u.role_id
 
     JOIN branches b
-      ON b.id = e.branch_id
+      ON b.id = COALESCE(sr.branch_id, e.branch_id)
 
     JOIN governorates g
       ON g.id = b.governorate_id
@@ -227,18 +234,16 @@ class SalaryRequestRepository {
         const { rows } = await db.query(`
     SELECT
       sr.id,
-      sr.employee_id,
       sr.requested_amount AS amount,
       sr.status,
       sr.created_at AS requestDate,
       sr.full_name,
       sr.phone_number,
-      sr.address,
       sr.payment_method,
       sr.note,
       sr.adjustment_type,
       sr.adjustment_amount,
-
+      gsr.name as salary_request_branch,
       u.first_name || ' ' || u.last_name AS employeeName,
       u.phone,
 
@@ -257,7 +262,13 @@ class SalaryRequestRepository {
       ON r.id = u.role_id
 
     JOIN branches b
-      ON b.id = e.branch_id
+      ON b.id =  e.branch_id
+
+    LEFT JOIN branches bsr
+      ON bsr.id = sr.branch_id
+    
+    LEFT JOIN governorates AS gsr
+      ON gsr.id = bsr.governorate_id
 
     JOIN governorates g
       ON g.id = b.governorate_id

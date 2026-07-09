@@ -27,6 +27,23 @@ class BranchRepository {
     return rows[0] || null;
   }
 
+  async getBranchGovernorateName(branchId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        b.id AS branch_id,
+        g.name AS governorate_name
+      FROM branches b
+      LEFT JOIN governorates g
+        ON g.id = b.governorate_id
+      WHERE b.id = $1
+      `,
+      [branchId],
+    );
+
+    return rows[0] || null;
+  }
+
   async list({ limit, offset }) {
     const sql = `
       SELECT 

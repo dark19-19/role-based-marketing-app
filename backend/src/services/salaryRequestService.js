@@ -16,7 +16,7 @@ class SalaryRequestService {
             const employee = await employeeRepo.findByUserId(user.id);
             if (!employee) throw new Error('Employee record not found');
 
-            const details = this._validateAndNormalizeSalaryRequestDetails(payload);
+            const details = await this._validateAndNormalizeSalaryRequestDetails(payload);
 
             const transactions = await salaryRepo.getEmployeeBalanceTransactions(employee.id);
             
@@ -46,16 +46,22 @@ class SalaryRequestService {
                     await notificationHelper.notifyMany(
                         adminUserIds,
                         'طلب راتب جديد',
-                        `تم استقبال طلب راتب جديد بقيمة ${totalAmount}، يرجى مراجعة طلبات الرواتب.`,
+                        `تم استقبال طلب راتب جديد بقيمة ${totalAmount} من فرع ${details.branch_name || 'غير محدد'}، يرجى مراجعة طلبات الرواتب.`,
                     );
                 }
 
-                const branchManagerUserIds = await branchRepo.getBranchManagerUserIds(employee.branch_id);
+                const branchManagerUserIds = await branchRepo.getBranchManagerUserIds(details.branch_id);
                 if (branchManagerUserIds.length > 0) {
+                    let branchManagersMessage = `تم استقبال طلب راتب جديد بقيمة ${totalAmount} لأحد الموظفين في فرعك.`;
+                    if (employee.branch_id && details.branch_id && employee.branch_id !== details.branch_id) {
+                        const employeeBranch = await branchRepo.getBranchGovernorateName(employee.branch_id);
+                        const employeeBranchName = employeeBranch?.governorate_name || 'غير محدد';
+                        branchManagersMessage = `تم استقبال طلب راتب جديد بقيمة ${totalAmount} لموظف من فرع ${employeeBranchName} (طلب إلى فرعك).`;
+                    }
                     await notificationHelper.notifyMany(
                         branchManagerUserIds,
                         'طلب راتب جديد',
-                        `تم استقبال طلب راتب جديد بقيمة ${totalAmount} لأحد الموظفين في فرعك.`,
+                        branchManagersMessage,
                     );
                 }
             } catch (notifyErr) {
@@ -66,26 +72,41 @@ class SalaryRequestService {
         });
     }
 
-    _validateAndNormalizeSalaryRequestDetails(payload) {
+    async _validateAndNormalizeSalaryRequestDetails(payload) {
         const raw = payload || {};
 
         const full_name = String(raw.full_name || '').trim();
         const phone_number = String(raw.phone_number || '').trim();
         const address = String(raw.address || '').trim();
         const payment_method = String(raw.payment_method || '').trim();
+        const branch_id = String(raw.branch_id || '').trim();
         const note = raw.note === undefined || raw.note === null ? null : String(raw.note);
 
         if (!full_name) throw new Error('الاسم  الكامل مطلوب');
         if (!phone_number) throw new Error('الرقم الموبايل مطلوب');
         if (!address) throw new Error('العنوان مطلوب');
         if (!payment_method) throw new Error('الريقة الدفع مطلوبة');
+        if (!branch_id) throw new Error('الفرع مطلوب');
 
         const allowed = new Set(Object.values(PAYMENT_METHODS));
         if (!allowed.has(payment_method)) {
             throw new Error(`طريقة دفع غير صالحة: ${payment_method}`);
         }
 
-        return { full_name, phone_number, address, payment_method, note };
+        const branch = await branchRepo.getBranchGovernorateName(branch_id);
+        if (!branch) {
+            throw new Error('الفرع غير موجود');
+        }
+
+        return {
+            full_name,
+            phone_number,
+            address,
+            payment_method,
+            note,
+            branch_id,
+            branch_name: branch.governorate_name || null,
+        };
     }
 
     async getRequestDetails(requestId) {
@@ -189,7 +210,7 @@ class SalaryRequestService {
         });
     }
 
-    async listPaginated(user, page = 1, limit = 20, status = null, paymentMethod = null) {
+    async listPaginated(user, page = 1, limit = 20, status = null, paymentMethod = null, requestBranchId = null) {
         const offset = (page - 1) * limit;
         const employee = await employeeRepo.findByUserId(user.id);
 
@@ -200,6 +221,21 @@ class SalaryRequestService {
             }
         }
 
+        if (requestBranchId && requestBranchId !== 'ALL') {
+            if (!['ADMIN', 'BRANCH_MANAGER'].includes(user.role)) {
+                throw new Error('Only admins and branch managers can filter by branch');
+            }
+
+            const branch = await branchRepo.findById(requestBranchId);
+            if (!branch) {
+                throw new Error(`Invalid branch_id: ${requestBranchId}`);
+            }
+
+            if (user.role === 'BRANCH_MANAGER' && employee && employee.branch_id !== requestBranchId) {
+                throw new Error('Branch managers can only filter by their own branch');
+            }
+        }
+
         const result = await salaryRepo.listPaginated({
             limit,
             offset,
@@ -207,7 +243,8 @@ class SalaryRequestService {
             employeeId: employee ? employee.id : null,
             branchId: employee ? employee.branch_id : null,
             status,
-            paymentMethod
+            paymentMethod,
+            requestBranchId
         });
 
         return {

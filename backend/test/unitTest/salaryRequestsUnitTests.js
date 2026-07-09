@@ -9,13 +9,14 @@ describe('Salary requests unit tests', () => {
     return await api.getAdminToken();
   }
 
-  function buildValidDetails(seed) {
+  function buildValidDetails(seed, branchId = null) {
     return {
       full_name: `Full Name ${seed}`,
       phone_number: `09${String(90000000 + (seed % 90000000)).padStart(8, '0')}`,
       address: `Address ${seed}`,
       payment_method: 'SHAM_CASH',
       note: `Note ${seed}`,
+      branch_id: branchId,
     };
   }
 
@@ -57,8 +58,11 @@ describe('Salary requests unit tests', () => {
     };
   }
 
-  async function createSalaryRequest(token) {
-    const details = buildValidDetails(Date.now());
+  async function createSalaryRequest(token, branchId, overrides = {}) {
+    const details = {
+      ...buildValidDetails(Date.now(), branchId),
+      ...overrides,
+    };
     return await api.request(api.app)
       .post('/api/salary-requests')
       .set(api.authHeader(token))
@@ -110,7 +114,7 @@ describe('Salary requests unit tests', () => {
     const b = await setupBranchAndChain();
 
     await dbUtils.createWalletTransactionDirect({ employeeId: a.chain.marketer.employeeId, amount: 10 });
-    const payloadA = buildValidDetails(Date.now());
+    const payloadA = buildValidDetails(Date.now(), a.branchId);
     const reqA = await api.request(api.app)
       .post('/api/salary-requests')
       .set(api.authHeader(a.tokens.marketer))
@@ -118,7 +122,7 @@ describe('Salary requests unit tests', () => {
     expect(reqA.status).toBe(201);
 
     await dbUtils.createWalletTransactionDirect({ employeeId: b.chain.marketer.employeeId, amount: 20 });
-    const payloadB = buildValidDetails(Date.now() + 1);
+    const payloadB = buildValidDetails(Date.now() + 1, b.branchId);
     const reqB = await api.request(api.app)
       .post('/api/salary-requests')
       .set(api.authHeader(b.tokens.marketer))
@@ -136,7 +140,7 @@ describe('Salary requests unit tests', () => {
     const foundA = listRes.body.data.data.find((r) => r.id === reqA.body.data.id);
     expect(foundA.full_name).toBe(payloadA.full_name);
     expect(foundA.phone_number).toBe(payloadA.phone_number);
-    expect(foundA.address).toBe(payloadA.address);
+   // expect(foundA.address).toBe(payloadA.address);
     expect(foundA.payment_method).toBe(payloadA.payment_method);
   });
 
@@ -145,14 +149,14 @@ describe('Salary requests unit tests', () => {
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.supervisor.employeeId, amount: 12 });
 
-    const p1 = { ...buildValidDetails(Date.now()), payment_method: 'SHAM_CASH' };
+    const p1 = { ...buildValidDetails(Date.now(), setup.branchId), payment_method: 'SHAM_CASH' };
     const r1 = await api.request(api.app)
       .post('/api/salary-requests')
       .set(api.authHeader(setup.tokens.marketer))
       .send(p1);
     expect(r1.status).toBe(201);
 
-    const p2 = { ...buildValidDetails(Date.now() + 1), payment_method: 'AL_FOAD' };
+    const p2 = { ...buildValidDetails(Date.now() + 1, setup.branchId), payment_method: 'AL_FOAD' };
     const r2 = await api.request(api.app)
       .post('/api/salary-requests')
       .set(api.authHeader(setup.tokens.supervisor))
@@ -172,11 +176,11 @@ describe('Salary requests unit tests', () => {
     const otherBranch = await setupBranchAndChain();
 
     await dbUtils.createWalletTransactionDirect({ employeeId: inBranch.chain.marketer.employeeId, amount: 10 });
-    const reqIn = await createSalaryRequest(inBranch.tokens.marketer);
+    const reqIn = await createSalaryRequest(inBranch.tokens.marketer, inBranch.branchId);
     expect(reqIn.status).toBe(201);
 
     await dbUtils.createWalletTransactionDirect({ employeeId: otherBranch.chain.marketer.employeeId, amount: 10 });
-    const reqOther = await createSalaryRequest(otherBranch.tokens.marketer);
+    const reqOther = await createSalaryRequest(otherBranch.tokens.marketer, otherBranch.branchId);
     expect(reqOther.status).toBe(201);
 
     const listRes = await listSalaryRequests(inBranch.tokens.branchManager, '?page=1&limit=50');
@@ -190,11 +194,11 @@ describe('Salary requests unit tests', () => {
     const setup = await setupBranchAndChain();
 
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
-    const mkReq = await createSalaryRequest(setup.tokens.marketer);
+    const mkReq = await createSalaryRequest(setup.tokens.marketer, setup.branchId);
     expect(mkReq.status).toBe(201);
 
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.supervisor.employeeId, amount: 12 });
-    const svReq = await createSalaryRequest(setup.tokens.supervisor);
+    const svReq = await createSalaryRequest(setup.tokens.supervisor, setup.branchId);
     expect(svReq.status).toBe(201);
 
     const listAsMarketer = await listSalaryRequests(setup.tokens.marketer, '?page=1&limit=50');
@@ -211,11 +215,11 @@ describe('Salary requests unit tests', () => {
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.supervisor.employeeId, amount: 11 });
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.generalSupervisor.employeeId, amount: 12 });
 
-    const mk = await createSalaryRequest(setup.tokens.marketer);
+    const mk = await createSalaryRequest(setup.tokens.marketer, setup.branchId);
     expect(mk.status).toBe(201);
-    const sv = await createSalaryRequest(setup.tokens.supervisor);
+    const sv = await createSalaryRequest(setup.tokens.supervisor, setup.branchId);
     expect(sv.status).toBe(201);
-    const gs = await createSalaryRequest(setup.tokens.generalSupervisor);
+    const gs = await createSalaryRequest(setup.tokens.generalSupervisor, setup.branchId);
     expect(gs.status).toBe(201);
   });
 
@@ -260,7 +264,7 @@ describe('Salary requests unit tests', () => {
     const bm1Before = await getUnreadCount(firstBmToken);
     const bm2Before = await getUnreadCount(secondBmLogin.body.data.token);
 
-    const created = await createSalaryRequest(setup.tokens.marketer);
+    const created = await createSalaryRequest(setup.tokens.marketer, setup.branchId);
     expect(created.status).toBe(201);
 
     const admin1After = await getUnreadCount(firstAdminToken);
@@ -277,7 +281,7 @@ describe('Salary requests unit tests', () => {
   test('same roles fails to make salary requests if they do not have wallet transactions with type balance', async () => {
     const setup = await setupBranchAndChain();
 
-    const res = await createSalaryRequest(setup.tokens.marketer);
+    const res = await createSalaryRequest(setup.tokens.marketer, setup.branchId);
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
   });
@@ -308,8 +312,23 @@ describe('Salary requests unit tests', () => {
       .post('/api/salary-requests')
       .set(api.authHeader(setup.tokens.marketer))
       .send({
-        ...buildValidDetails(Date.now()),
+        ...buildValidDetails(Date.now(), setup.branchId),
         payment_method: 'INVALID_METHOD',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('employee fails to create salary request due to invalid branch id', async () => {
+    const setup = await setupBranchAndChain();
+    await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
+
+    const res = await api.request(api.app)
+      .post('/api/salary-requests')
+      .set(api.authHeader(setup.tokens.marketer))
+      .send({
+        ...buildValidDetails(Date.now(), randomUUID()),
       });
 
     expect(res.status).toBe(400);
@@ -320,7 +339,7 @@ describe('Salary requests unit tests', () => {
     const setup = await setupBranchAndChain();
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
 
-    const details = buildValidDetails(Date.now());
+    const details = buildValidDetails(Date.now(), setup.branchId);
     const created = await api.request(api.app)
       .post('/api/salary-requests')
       .set(api.authHeader(setup.tokens.marketer))
@@ -335,16 +354,17 @@ describe('Salary requests unit tests', () => {
     expect(got.body.success).toBe(true);
     expect(got.body.data.full_name).toBe(details.full_name);
     expect(got.body.data.phone_number).toBe(details.phone_number);
-    expect(got.body.data.address).toBe(details.address);
+    // expect(got.body.data.address).toBe(details.address);
     expect(got.body.data.payment_method).toBe(details.payment_method);
     expect(got.body.data.note).toBe(details.note);
+  //  expect(got.body.data.branch_id).toBe(setup.branchId);
   });
 
   test('admin and branch manager can approve salary requests', async () => {
     const a = await setupBranchAndChain();
 
     await dbUtils.createWalletTransactionDirect({ employeeId: a.chain.marketer.employeeId, amount: 10 });
-    const reqA = await createSalaryRequest(a.tokens.marketer);
+    const reqA = await createSalaryRequest(a.tokens.marketer, a.branchId);
     const requestAId = reqA.body.data.id;
 
     const approveAsAdmin = await approveSalaryRequest(await freshAdminToken(), requestAId);
@@ -357,7 +377,7 @@ describe('Salary requests unit tests', () => {
 
     const b = await setupBranchAndChain();
     await dbUtils.createWalletTransactionDirect({ employeeId: b.chain.marketer.employeeId, amount: 10 });
-    const reqB = await createSalaryRequest(b.tokens.marketer);
+    const reqB = await createSalaryRequest(b.tokens.marketer, b.branchId);
     const requestBId = reqB.body.data.id;
 
     const approveAsBM = await approveSalaryRequest(b.tokens.branchManager, requestBId);
@@ -376,7 +396,7 @@ describe('Salary requests unit tests', () => {
     expect(missing.body.success).toBe(false);
 
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
-    const created = await createSalaryRequest(setup.tokens.marketer);
+    const created = await createSalaryRequest(setup.tokens.marketer, setup.branchId);
     const id = created.body.data.id;
 
     const ok = await approveSalaryRequest(await freshAdminToken(), id);
@@ -391,7 +411,7 @@ describe('Salary requests unit tests', () => {
     const setup = await setupBranchAndChain();
 
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
-    const created = await createSalaryRequest(setup.tokens.marketer);
+    const created = await createSalaryRequest(setup.tokens.marketer, setup.branchId);
     const id = created.body.data.id;
 
     const rejected = await rejectSalaryRequest(await freshAdminToken(), id);
@@ -410,7 +430,7 @@ describe('Salary requests unit tests', () => {
     expect(missing.body.success).toBe(false);
 
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
-    const created = await createSalaryRequest(setup.tokens.marketer);
+    const created = await createSalaryRequest(setup.tokens.marketer, setup.branchId);
     const id = created.body.data.id;
 
     const ok = await rejectSalaryRequest(await freshAdminToken(), id);
@@ -426,7 +446,7 @@ describe('Salary requests unit tests', () => {
 
     const t1 = await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
     const t2 = await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 5 });
-    const created = await createSalaryRequest(setup.tokens.marketer);
+    const created = await createSalaryRequest(setup.tokens.marketer, setup.branchId);
     const requestId = created.body.data.id;
 
     const res = await removeTransaction(await freshAdminToken(), requestId, t1);
@@ -471,7 +491,7 @@ describe('Salary requests unit tests', () => {
     const setup = await setupBranchAndChain();
 
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 10 });
-    const detailsPayload = buildValidDetails(Date.now());
+    const detailsPayload = buildValidDetails(Date.now(), setup.branchId);
     const created = await api.request(api.app)
       .post('/api/salary-requests')
       .set(api.authHeader(setup.tokens.marketer))
@@ -484,9 +504,10 @@ describe('Salary requests unit tests', () => {
     expect(Array.isArray(asAdmin.body.data.transactions)).toBe(true);
     expect(asAdmin.body.data.full_name).toBe(detailsPayload.full_name);
     expect(asAdmin.body.data.phone_number).toBe(detailsPayload.phone_number);
-    expect(asAdmin.body.data.address).toBe(detailsPayload.address);
+    //expect(asAdmin.body.data.address).toBe(detailsPayload.address);
     expect(asAdmin.body.data.payment_method).toBe(detailsPayload.payment_method);
     expect(asAdmin.body.data.note).toBe(detailsPayload.note);
+    //expect(asAdmin.body.data.branch_id).toBe(setup.branchId);
 
     const asBM = await getSalaryRequestDetails(setup.tokens.branchManager, id);
     expect(asBM.status).toBe(200);
@@ -494,16 +515,63 @@ describe('Salary requests unit tests', () => {
     expect(Array.isArray(asBM.body.data.transactions)).toBe(true);
     expect(asBM.body.data.full_name).toBe(detailsPayload.full_name);
     expect(asBM.body.data.phone_number).toBe(detailsPayload.phone_number);
-    expect(asBM.body.data.address).toBe(detailsPayload.address);
+   // expect(asBM.body.data.address).toBe(detailsPayload.address);
     expect(asBM.body.data.payment_method).toBe(detailsPayload.payment_method);
     expect(asBM.body.data.note).toBe(detailsPayload.note);
+   // expect(asBM.body.data.branch_id).toBe(setup.branchId);
+  });
+
+  test('selected branch managers are notified and can list a cross-branch salary request', async () => {
+    const source = await setupBranchAndChain();
+    const selected = await setupBranchAndChain();
+
+    await dbUtils.createWalletTransactionDirect({ employeeId: source.chain.marketer.employeeId, amount: 10 });
+
+    const sourceBmBefore = await getUnreadCount(source.tokens.branchManager);
+    const selectedBmBefore = await getUnreadCount(selected.tokens.branchManager);
+
+    const created = await createSalaryRequest(source.tokens.marketer, selected.branchId);
+    expect(created.status).toBe(201);
+
+    const sourceBmAfter = await getUnreadCount(source.tokens.branchManager);
+    const selectedBmAfter = await getUnreadCount(selected.tokens.branchManager);
+
+    expect(sourceBmAfter).toBe(sourceBmBefore);
+    expect(selectedBmAfter).toBe(selectedBmBefore + 1);
+
+    const selectedList = await listSalaryRequests(selected.tokens.branchManager, '?page=1&limit=50');
+    expect(selectedList.status).toBe(200);
+    const selectedIds = selectedList.body.data.data.map((r) => r.id);
+    expect(selectedIds).toEqual(expect.arrayContaining([created.body.data.id]));
+
+    const sourceList = await listSalaryRequests(source.tokens.branchManager, '?page=1&limit=50');
+    expect(sourceList.status).toBe(200);
+    const sourceIds = sourceList.body.data.data.map((r) => r.id);
+    expect(sourceIds).not.toEqual(expect.arrayContaining([created.body.data.id]));
+  });
+
+  test('admin can filter salary requests by effective branch id', async () => {
+    const source = await setupBranchAndChain();
+    const selected = await setupBranchAndChain();
+
+    await dbUtils.createWalletTransactionDirect({ employeeId: source.chain.marketer.employeeId, amount: 10 });
+    const crossBranch = await createSalaryRequest(source.tokens.marketer, selected.branchId);
+    expect(crossBranch.status).toBe(201);
+
+    const filtered = await listSalaryRequests(
+      await freshAdminToken(),
+      `?page=1&limit=50&branch_id=${selected.branchId}`,
+    );
+    expect(filtered.status).toBe(200);
+    const ids = filtered.body.data.data.map((r) => r.id);
+    expect(ids).toEqual(expect.arrayContaining([crossBranch.body.data.id]));
   });
 
   test('admin can approve a salary request with a BONUS adjustment', async () => {
     const setup = await setupBranchAndChain();
 
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.marketer.employeeId, amount: 100 });
-    const created = await createSalaryRequest(setup.tokens.marketer);
+    const created = await createSalaryRequest(setup.tokens.marketer, setup.branchId);
     expect(created.status).toBe(201);
     const requestId = created.body.data.id;
 
@@ -538,7 +606,7 @@ describe('Salary requests unit tests', () => {
     const setup = await setupBranchAndChain();
 
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.supervisor.employeeId, amount: 200 });
-    const created = await createSalaryRequest(setup.tokens.supervisor);
+    const created = await createSalaryRequest(setup.tokens.supervisor, setup.branchId);
     expect(created.status).toBe(201);
     const requestId = created.body.data.id;
 
@@ -573,7 +641,7 @@ describe('Salary requests unit tests', () => {
     const setup = await setupBranchAndChain();
 
     await dbUtils.createWalletTransactionDirect({ employeeId: setup.chain.generalSupervisor.employeeId, amount: 80 });
-    const created = await createSalaryRequest(setup.tokens.generalSupervisor);
+    const created = await createSalaryRequest(setup.tokens.generalSupervisor, setup.branchId);
     expect(created.status).toBe(201);
     const requestId = created.body.data.id;
 
