@@ -94,18 +94,23 @@ class SalaryRequestRepository {
 
     async updateStatus(client, id, status, adjustmentType = null, adjustmentAmount = null) {
         const queryClient = client || db;
+        let result;
         if (adjustmentType !== null && adjustmentAmount !== null) {
-            await queryClient.query(`
+            result = await queryClient.query(`
                 UPDATE salary_requests
                 SET status = $1, adjustment_type = $3, adjustment_amount = $4
-                WHERE id = $2
+                WHERE id = $2 AND status = 'PENDING'
             `, [status, id, adjustmentType, adjustmentAmount]);
         } else {
-            await queryClient.query(`
+            result = await queryClient.query(`
                 UPDATE salary_requests
                 SET status = $1
-                WHERE id = $2
+                WHERE id = $2 AND status = 'PENDING'
             `, [status, id]);
+        }
+
+        if (result.rowCount === 0) {
+            throw new Error('Salary request has already been processed');
         }
     }
 

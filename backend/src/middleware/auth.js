@@ -15,7 +15,8 @@ async function authMiddleware(req, res, next) {
   const rec = await userRepo.getTokenByValue(token);
   if (rec && rec.revoked) return res.status(401).json({ error: 'Session expired' });
 
-  req.user = { id: payload.sub, phone: payload.phone, role: payload.role, token };
+  const normalizedRole = String(payload.role || '').toUpperCase();
+  req.user = { id: payload.sub, phone: payload.phone, role: normalizedRole, token };
 
   if (req.user.role === 'CUSTOMER') {
     const customer = await customerRepo.findByUserIdWithActive(req.user.id);
