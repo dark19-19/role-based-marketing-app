@@ -96,6 +96,29 @@ class WalletRepository {
         return rows;
     }
 
+    async getLockedBalance(client, employeeId) {
+        // Advisory lock serializes all wallet operations for this employee
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`wallet_${employeeId}`]);
+
+        // Compute balance inside the transaction (sees all committed + uncommitted writes)
+        const { rows } = await client.query(`
+            SELECT COALESCE(SUM(
+                CASE
+                    WHEN w.type = 'BALANCE' THEN w.amount
+                    WHEN w.type = 'BONUS' AND srt.transaction_id IS NULL THEN w.amount
+                    WHEN w.type = 'DISCOUNT' AND srt.transaction_id IS NULL THEN -w.amount
+                    ELSE 0
+                END
+            ), 0) as current_balance
+            FROM wallet_transactions w
+            LEFT JOIN salary_request_transactions srt
+              ON srt.transaction_id = w.id
+            WHERE w.employee_id = $1
+        `, [employeeId]);
+
+        return Number(rows[0]?.current_balance || 0);
+    }
+
     async getBalanceAndRequestedTransactions(employeeId) {
         const { rows } = await db.query(`
             SELECT id, amount, type

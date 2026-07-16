@@ -78,12 +78,11 @@ class WalletService {
         const adminName = adminRow ? `${adminRow.first_name} ${adminRow.last_name}` : 'Admin';
 
         return db.runInTransaction(async (client) => {
-            if (type === TYPES.DISCOUNT) {
-                const summary = await walletRepo.getSummary(employeeId);
-                const currentBalance = Number(summary?.current_balance || 0);
-                if (amount > currentBalance) {
-                    throw new Error('Discount amount cannot be greater than current balance');
-                }
+            // Lock employee's wallet rows to prevent concurrent over-deduction
+            const currentBalance = await walletRepo.getLockedBalance(client, employeeId);
+
+            if (type === TYPES.DISCOUNT && amount > currentBalance) {
+                throw new Error('Discount amount cannot be greater than current balance');
             }
 
             const transactionId = await walletRepo.createWithClient(client, {
