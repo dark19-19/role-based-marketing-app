@@ -384,10 +384,10 @@ class OrderService {
   ) {
     const commissions = await commissionRepo.getAll();
 
-    console.log(
-      "[OrderService][_calculateDistributions] all commissions",
-      commissions,
-    );
+    // console.log(
+    //   "[OrderService][_calculateDistributions] all commissions",
+    //   commissions,
+    // );
 
     let company = 0;
     let gs = 0;
@@ -398,30 +398,30 @@ class OrderService {
     const discountAmount = Number(order.discount_amount || 0);
     const totalMainPrice = Number(order.total_main_price || 0);
 
-    console.log("[OrderService][_calculateDistributions] start", {
-      orderId: order.id,
-      total_sold_price: order.total_sold_price,
-      totalSoldPrice,
-      discount_amount: order.discount_amount,
-      discountAmount,
-      deliveryFee,
-      couponPercentage,
-      actualPercentage,
-      total_main_price: order.total_main_price,
-      totalMainPrice,
-      itemCount: items.length,
-    });
+    // console.log("[OrderService][_calculateDistributions] start", {
+    //   orderId: order.id,
+    //   total_sold_price: order.total_sold_price,
+    //   totalSoldPrice,
+    //   discount_amount: order.discount_amount,
+    //   discountAmount,
+    //   deliveryFee,
+    //   couponPercentage,
+    //   actualPercentage,
+    //   total_main_price: order.total_main_price,
+    //   totalMainPrice,
+    //   itemCount: items.length,
+    // });
 
     // Calculate original sold price before discount
     const originalSoldPrice = totalSoldPrice + discountAmount;
     const baseTotal = originalSoldPrice - deliveryFee;
     const oldMainTotal = totalMainPrice;
 
-    console.log("[OrderService][_calculateDistributions] base values", {
-      originalSoldPrice,
-      baseTotal,
-      oldMainTotal,
-    });
+    // console.log("[OrderService][_calculateDistributions] base values", {
+    //   originalSoldPrice,
+    //   baseTotal,
+    //   oldMainTotal,
+    // });
 
     // Helper function to get the most recent commission
     const getMostRecentCommission = (commissionList) => {
@@ -453,13 +453,13 @@ class OrderService {
       const general = mostRecentGeneral;
       const c = specific || general;
 
-      console.log("[OrderService][_calculateDistributions] commission lookup", {
-        product_id: item.product_id,
-        specific: !!specific,
-        general: !!general,
-        using: c ? (c.product_id ? "specific" : "general") : "none",
-        commission_id: c?.id,
-      });
+      // console.log("[OrderService][_calculateDistributions] commission lookup", {
+      //   product_id: item.product_id,
+      //   specific: !!specific,
+      //   general: !!general,
+      //   using: c ? (c.product_id ? "specific" : "general") : "none",
+      //   commission_id: c?.id,
+      // });
 
       if (!c) {
         console.log(
@@ -484,19 +484,19 @@ class OrderService {
       gs += base * (gsPct / 100);
       supervisor += base * (supervisorPct / 100);
 
-      console.log("[OrderService][_calculateDistributions] item", {
-        product_id: item.product_id,
-        quantity: itemQuantity,
-        main_price: itemMainPrice,
-        commission_product_id: c.product_id,
-        company_percentage: companyPct,
-        general_supervisor_percentage: gsPct,
-        supervisor_percentage: supervisorPct,
-        base,
-        company,
-        gs,
-        supervisor,
-      });
+      // console.log("[OrderService][_calculateDistributions] item", {
+      //   product_id: item.product_id,
+      //   quantity: itemQuantity,
+      //   main_price: itemMainPrice,
+      //   commission_product_id: c.product_id,
+      //   company_percentage: companyPct,
+      //   general_supervisor_percentage: gsPct,
+      //   supervisor_percentage: supervisorPct,
+      //   base,
+      //   company,
+      //   gs,
+      //   supervisor,
+      // });
     }
 
     // The extra amount (baseTotal - oldMainTotal) is additional profit for the company
@@ -540,13 +540,13 @@ class OrderService {
     // (extraProfit is already accounted for in the base calculation above)
     company += deliveryFee;
 
-    console.log("[OrderService][_calculateDistributions] pre-distributions", {
-      baseTotal,
-      company,
-      gs,
-      supervisor,
-      marketer,
-    });
+    // console.log("[OrderService][_calculateDistributions] pre-distributions", {
+    //   baseTotal,
+    //   company,
+    //   gs,
+    //   supervisor,
+    //   marketer,
+    // });
 
     const commissionMode = order.commission_mode || COMMISSION_MODES.LEGACY;
     const commissionEmployeeId =
@@ -605,16 +605,16 @@ class OrderService {
       gsEmployee = supervisorEmployee;
       supervisorEmployee = null;
 
-      console.log(
-        "[OrderService][_calculateDistributions] hierarchy shift: no GS, supervisor promoted to GS",
-        {
-          company,
-          gs,
-          supervisor,
-          gsEmployee: gsEmployee?.id,
-          supervisorEmployee: null,
-        },
-      );
+      // console.log(
+      //   "[OrderService][_calculateDistributions] hierarchy shift: no GS, supervisor promoted to GS",
+      //   {
+      //     company,
+      //     gs,
+      //     supervisor,
+      //     gsEmployee: gsEmployee?.id,
+      //     supervisorEmployee: null,
+      //   },
+      // );
     }
 
 
@@ -845,14 +845,14 @@ class OrderService {
 
       if (order.status === "PENDING") {
         try {
-          console.log("[OrderService][getById] preview start", {
-            orderId,
-            orderNotes: order.notes,
-            total_sold_price: order.total_sold_price,
-            discount_amount: order.discount_amount,
-            total_main_price: order.total_main_price,
-            delivery_point_id: order.delivery_point_id,
-          });
+          // console.log("[OrderService][getById] preview start", {
+          //   orderId,
+          //   orderNotes: order.notes,
+          //   total_sold_price: order.total_sold_price,
+          //   discount_amount: order.discount_amount,
+          //   total_main_price: order.total_main_price,
+          //   delivery_point_id: order.delivery_point_id,
+          // });
 
           const items = await orderItemRepository.findByOrderId(orderId);
 
