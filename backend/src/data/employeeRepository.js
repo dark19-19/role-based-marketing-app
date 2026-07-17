@@ -305,8 +305,8 @@ ORDER BY name
                 o.created_at,
 
                 c.id AS customer_id,
-                c_u.first_name || ' ' || c_u.last_name AS customer_name,
-                c_u.phone AS customer_phone,
+                (COALESCE(c.first_name, c_u.first_name) || ' ' || COALESCE(c.last_name, c_u.last_name)) AS customer_name,
+                COALESCE(c.phone, c_u.phone) AS customer_phone,
 
                 g.name AS governorate
             FROM orders o
