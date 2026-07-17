@@ -79,6 +79,20 @@ class OrderService {
       }
     }
 
+    // Resolve and snapshot the employee hierarchy at order creation time
+    let supervisorEmployeeId = null;
+    let gsEmployeeId = null;
+    if (commissionEmployeeId) {
+      const emp = await employeeRepository.findById(commissionEmployeeId);
+      if (emp && emp.supervisor_id) {
+        supervisorEmployeeId = emp.supervisor_id;
+        const sup = await employeeRepository.findById(emp.supervisor_id);
+        if (sup && sup.supervisor_id) {
+          gsEmployeeId = sup.supervisor_id;
+        }
+      }
+    }
+
     // Allow null marketerId for self-registered customers (no referral)
     // if (!marketerId) {
     //   throw new Error("Invalid marketerId: could not determine marketer");
@@ -221,6 +235,8 @@ class OrderService {
         order_source: orderSource,
         commission_mode: commissionMode,
         commission_employee_id: commissionEmployeeId,
+        supervisor_employee_id: supervisorEmployeeId,
+        gs_employee_id: gsEmployeeId,
       },
       client,
     );
@@ -560,12 +576,24 @@ class OrderService {
     let marketerEmployee = commissionEmployeeId
       ? await employeeRepository.findById(commissionEmployeeId)
       : null;
-    let supervisorEmployee = marketerEmployee?.supervisor_id
-      ? await employeeRepository.findById(marketerEmployee.supervisor_id)
-      : null;
-    let gsEmployee = supervisorEmployee?.supervisor_id
-      ? await employeeRepository.findById(supervisorEmployee.supervisor_id)
-      : null;
+    let supervisorEmployee = null;
+    let gsEmployee = null;
+
+    // Use stored hierarchy snapshot if available (prevents promotion-related bugs)
+    if (order.supervisor_employee_id) {
+      supervisorEmployee = await employeeRepository.findById(order.supervisor_employee_id);
+      if (order.gs_employee_id) {
+        gsEmployee = await employeeRepository.findById(order.gs_employee_id);
+      }
+    } else {
+      // Fallback: resolve from current employee records (backward compatibility for old orders)
+      supervisorEmployee = marketerEmployee?.supervisor_id
+        ? await employeeRepository.findById(marketerEmployee.supervisor_id)
+        : null;
+      gsEmployee = supervisorEmployee?.supervisor_id
+        ? await employeeRepository.findById(supervisorEmployee.supervisor_id)
+        : null;
+    }
 
 
     // If no marketer or commission mode is company-only, ALL profits go to company
@@ -843,50 +871,8 @@ class OrderService {
         throw new Error("الطلب غير موجود");
       }
 
-      if (order.status === "PENDING") {
-        try {
-          // console.log("[OrderService][getById] preview start", {
-          //   orderId,
-          //   orderNotes: order.notes,
-          //   total_sold_price: order.total_sold_price,
-          //   discount_amount: order.discount_amount,
-          //   total_main_price: order.total_main_price,
-          //   delivery_point_id: order.delivery_point_id,
-          // });
-
-          const items = await orderItemRepository.findByOrderId(orderId);
-
-          let deliveryFee = 0;
-          if (order.delivery_point_id) {
-            const dp = await deliveryPointRepo.findById(
-              order.delivery_point_id,
-            );
-            if (dp) {
-              const fee = Number(dp.fee);
-              deliveryFee = Number.isNaN(fee) ? 0 : fee;
-            }
-          }
-
-          let couponPercentage = 0;
-          const couponUsage = await couponRepo.findUsageByOrderId(orderId);
-          if (couponUsage?.coupon_id) {
-            const coupon = await couponRepo.findById(couponUsage.coupon_id);
-            if (coupon) {
-              couponPercentage = Number(coupon.discount_percentage || 0);
-            }
-          }
-
-          const { distributions } = await this._calculateDistributions(
-            order,
-            items,
-            deliveryFee,
-            couponPercentage,
-          );
-          order.preview_transactions = distributions;
-        } catch (e) {
-          console.error("Failed to generate preview:", e);
-        }
-      }
+      // Commission distribution is only available after delivery from order_commissions table
+      // Preview calculation is omitted to avoid inaccurate results
 
       return order;
     } catch (err) {

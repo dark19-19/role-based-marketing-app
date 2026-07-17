@@ -25,10 +25,12 @@ class OrderRepository {
         status,
         order_source,
         commission_mode,
-        commission_employee_id
+        commission_employee_id,
+        supervisor_employee_id,
+        gs_employee_id
       )
 
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'PENDING',$12,$13,$14)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'PENDING',$12,$13,$14,$15,$16)
       `,
       [
         id,
@@ -45,6 +47,8 @@ class OrderRepository {
         order.order_source || null,
         order.commission_mode || COMMISSION_MODES.LEGACY,
         order.commission_employee_id || null,
+        order.supervisor_employee_id || null,
+        order.gs_employee_id || null,
       ],
     );
 
@@ -500,6 +504,8 @@ class OrderRepository {
                 o.coupon_id,
                 o.discount_percentage,
                 o.discount_amount,
+                o.supervisor_employee_id,
+                o.gs_employee_id,
                 dp.name AS delivery_point_name,
                 dp.fee AS delivery_fee,
                 o.created_at,
