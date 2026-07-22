@@ -618,31 +618,22 @@ class OrderService {
 
 
     // Hierarchy shifting (for orders WITH a marketer)
-    // Case 1: No GS but has supervisor -> supervisor becomes the new GS
     if (gsEmployee === null) {
       // GS percentage goes to company (since there's no GS)
       company += gs;
-      // if there is no supervisor in the tree 
+
       if (supervisorEmployee === null) {
+        // No supervisor and no GS — both percentages go to company
         company += supervisor;
+        gs = 0;
+        supervisor = 0;
+      } else {
+        // No GS but has supervisor — supervisor is promoted to GS, keeps their share
+        gs = supervisor;
+        supervisor = 0;
+        gsEmployee = supervisorEmployee;
+        supervisorEmployee = null;
       }
-
-      // Supervisor becomes the new GS
-      gs = supervisor;
-      supervisor = 0;
-      gsEmployee = supervisorEmployee;
-      supervisorEmployee = null;
-
-      // console.log(
-      //   "[OrderService][_calculateDistributions] hierarchy shift: no GS, supervisor promoted to GS",
-      //   {
-      //     company,
-      //     gs,
-      //     supervisor,
-      //     gsEmployee: gsEmployee?.id,
-      //     supervisorEmployee: null,
-      //   },
-      // );
     }
 
 
