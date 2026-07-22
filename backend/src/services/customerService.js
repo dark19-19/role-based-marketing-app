@@ -162,11 +162,11 @@ class CustomerService {
             throw new Error('Customer not found');
 
         }
-
-        if (customer.governorate_id) {
-            throw new Error('Governorate is already set');
-
-        }
+       //  Relaxing Constraints ( since it doesn't affect anything along the way we become more graceful)
+        // if (customer.governorate_id) {
+        //     throw new Error('Governorate is already set');
+        //
+        // }
 
         if (customer.customer_origin !== 'SELF_REGISTERED') {
             throw new Error('Cannot update governorate for this customer');

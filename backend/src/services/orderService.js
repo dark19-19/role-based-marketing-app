@@ -674,10 +674,10 @@ class OrderService {
         amount: marketer,
       });
 
-    console.log("[OrderService][_calculateDistributions] distributions", {
-      distributions,
-      metadata: { company, gs, supervisor, marketer },
-    });
+    // console.log("[OrderService][_calculateDistributions] distributions", {
+    //   distributions,
+    //   metadata: { company, gs, supervisor, marketer },
+    // });
 
     return {
       distributions,

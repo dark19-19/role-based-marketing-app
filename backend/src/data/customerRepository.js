@@ -335,7 +335,6 @@ class CustomerRepository {
             UPDATE customers
             SET governorate_id = $2
             WHERE id = $1
-              AND governorate_id IS NULL
               AND is_active = true
             RETURNING id, governorate_id
             `,

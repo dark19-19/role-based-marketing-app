@@ -298,7 +298,7 @@ describe('Customer unit tests', () => {
     expect(res.body.message).toBe('Customer not found');
   });
 
-  test('customer can list governorates and set governorate_id once (self-registered customer)', async () => {
+  test('customer can list governorates and set governorate_id as many times as he wants (Relaxing Constraints) - (self-registered customer)', async () => {
     const phone = '0991000099';
     const password = 'custpass123';
 
@@ -335,8 +335,8 @@ describe('Customer unit tests', () => {
       .patch('/api/customers/me/governorate')
       .set(api.authHeader(token))
       .send({ governorate_id: governorateId });
-    expect(updateAgain.status).toBe(400);
-    expect(updateAgain.body.success).toBe(false);
-    expect(updateAgain.body.message).toBe('Governorate is already set');
+    expect(updateAgain.status).toBe(200);
+    expect(update.body.success).toBe(true);
+    expect(update.body.data.governorate_id).toBe(governorateId);
   });
 });
