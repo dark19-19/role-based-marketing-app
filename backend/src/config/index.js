@@ -184,6 +184,39 @@ function parseServerHardening() {
   };
 }
 
+function parseDatabasePools() {
+  const readMax = parseOptionalIntEnv('DB_READ_POOL_MAX', 6);
+  const writeMax = parseOptionalIntEnv('DB_WRITE_POOL_MAX', 4);
+  const idleTimeoutMs = parseOptionalIntEnv('DB_POOL_IDLE_TIMEOUT_MS', 10000);
+  const connectionTimeoutMs = parseOptionalIntEnv('DB_POOL_CONNECTION_TIMEOUT_MS', 1000);
+  const queryTimeoutMs = parseOptionalIntEnv('DB_QUERY_TIMEOUT_MS', 3000);
+  const statementTimeoutMs = parseOptionalIntEnv('DB_STATEMENT_TIMEOUT_MS', 3000);
+
+  const mustBePositive = [
+    ['DB_READ_POOL_MAX', readMax],
+    ['DB_WRITE_POOL_MAX', writeMax],
+    ['DB_POOL_IDLE_TIMEOUT_MS', idleTimeoutMs],
+    ['DB_POOL_CONNECTION_TIMEOUT_MS', connectionTimeoutMs],
+    ['DB_QUERY_TIMEOUT_MS', queryTimeoutMs],
+    ['DB_STATEMENT_TIMEOUT_MS', statementTimeoutMs],
+  ];
+
+  for (const [name, value] of mustBePositive) {
+    if (value < 1) {
+      throw new Error(`Invalid ${name}: ${value} (expected >= 1)`);
+    }
+  }
+
+  return {
+    readMax,
+    writeMax,
+    idleTimeoutMs,
+    connectionTimeoutMs,
+    queryTimeoutMs,
+    statementTimeoutMs,
+  };
+}
+
 const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
@@ -196,6 +229,7 @@ const config = {
   notificationsMaxCount: parseNotificationMaxCount(),
   notificationsHardDeleteAfterDays: parseNotificationsHardDeleteAfterDays(),
   productsListCacheTtlSeconds: parseProductsListCacheTtlSeconds(),
+  dbPools: parseDatabasePools(),
   serverHardening: parseServerHardening(),
   admin1Phone: requiredEnv('ADMIN_1_PHONE'),
   admin1Password: requiredEnv('ADMIN_1_PASSWORD'),
