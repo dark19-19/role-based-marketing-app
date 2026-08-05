@@ -17,6 +17,7 @@ const walletRoutes = require('./walletRoutes');
 const statsRoutes = require('./statsRoutes');
 const deliveryPointRoutes = require('./deliveryPointRoutes');
 const couponRoutes = require('./couponRoutes');
+const cleanupRoutes = require('./cleanupRoutes');
 const router = express.Router();
 
 router.use('/api/wallet', walletRoutes);
@@ -36,6 +37,7 @@ router.use('/api', orderRoutes);
 router.use('/api', commissionRoutes);
 router.use('/api', deliveryPointRoutes);
 router.use('/api', couponRoutes);
+router.use('/api', cleanupRoutes);
 router.use('/api/stats', statsRoutes);
 
 
