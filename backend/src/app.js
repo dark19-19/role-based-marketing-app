@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const routes = require("./routes");
 const rateLimiter = require("./middleware/rateLimiter");
+const requestIp = require('request-ip');
+
 const config = require("./config");
 const {
   getConfiguredUploadsRoot,
@@ -9,7 +11,10 @@ const {
 } = require("./utils/uploadPaths");
 
 const app = express();
+app.use(requestIp.mw());
+
 app.set("trust proxy", config.trustProxy);
+console.log("trust proxy mode : ", config.trustProxy)
 
 // TEMPORARY: For testing 5xx error screen
 // app.use((req, res, next) => {
@@ -32,6 +37,15 @@ app.use("/uploads", express.static(uploadsDir));
 
 app.use(cors());
 app.use(express.json());
+
+app.use((req, res, next) => {
+  console.log(`--- DEBUG INCOMING REQUEST ---`);
+  console.log(`req.ip evaluated as: ${req.ip}`);
+  console.log(`CF-Connecting-IP header: ${req.headers['cf-connecting-ip']}`);
+  console.log(`X-Forwarded-For header: ${req.headers['x-forwarded-for']}`);
+  next();
+});
+
 if (process.env.NODE_ENV !== "development") {
   app.use(rateLimiter);
 }
