@@ -108,6 +108,56 @@ describe('Product unit tests', () => {
     }
   });
 
+  test('products list can be filtered by category (optional)', async () => {
+    const adminLogin = await api.loginAdmin();
+    const adminToken = adminLogin.body.data.token;
+
+    const categoryA = await createCategoryAsAdmin(adminToken, `ProdCatA_${randomUUID().slice(0, 6)}`);
+    const categoryB = await createCategoryAsAdmin(adminToken, `ProdCatB_${randomUUID().slice(0, 6)}`);
+    const emptyCategory = await createCategoryAsAdmin(adminToken, `ProdCatEmpty_${randomUUID().slice(0, 6)}`);
+
+    await api.request(api.app)
+      .post('/api/products')
+      .set(api.authHeader(adminToken))
+      .send({
+        name: 'CatA Product',
+        description: 'A',
+        price: 10,
+        quantity: 50,
+        category_id: categoryA,
+      });
+
+    await api.request(api.app)
+      .post('/api/products')
+      .set(api.authHeader(adminToken))
+      .send({
+        name: 'CatB Product',
+        description: 'B',
+        price: 10,
+        quantity: 50,
+        category_id: categoryB,
+      });
+
+    const filtered = await api.request(api.app)
+      .get(`/api/products?page=1&limit=10&category_id=${categoryA}`)
+      .set(api.authHeader(adminToken));
+
+    expect(filtered.status).toBe(200);
+    expect(filtered.body.success).toBe(true);
+    expect(filtered.body.data.pagination.total).toBe(1);
+    expect(filtered.body.data.products.length).toBe(1);
+    expect(filtered.body.data.products[0].category_id).toBe(categoryA);
+
+    const empty = await api.request(api.app)
+      .get(`/api/products?page=1&limit=10&category_id=${emptyCategory}`)
+      .set(api.authHeader(adminToken));
+
+    expect(empty.status).toBe(200);
+    expect(empty.body.success).toBe(true);
+    expect(empty.body.data.pagination.total).toBe(0);
+    expect(empty.body.data.products).toEqual([]);
+  });
+
   test('products list uses cache-aside and invalidates after product mutation', async () => {
     const adminLogin = await api.loginAdmin();
     const adminToken = adminLogin.body.data.token;

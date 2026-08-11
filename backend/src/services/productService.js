@@ -25,7 +25,7 @@ class ProductService {
     return created;
   }
 
-  async listProducts({ page = 1, limit = 20 } = {}) {
+  async listProducts({ page = 1, limit = 20, category_id = null } = {}) {
 
     const p = Number(page);
     const l = Number(limit);
@@ -35,11 +35,18 @@ class ProductService {
 
     const offset = (validatedPage - 1) * validatedLimit;
 
-    const total = await productRepo.count()
+    const categoryIdRaw = category_id === undefined || category_id === null ? null : String(category_id).trim();
+    const categoryId = categoryIdRaw ? categoryIdRaw : null;
+    if (categoryId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId)) {
+      throw new Error('Invalid category id');
+    }
+
+    const total = await productRepo.count({ categoryId });
 
     const products = await productRepo.findAll({
       limit: validatedLimit,
-      offset
+      offset,
+      categoryId
     });
 
     return {

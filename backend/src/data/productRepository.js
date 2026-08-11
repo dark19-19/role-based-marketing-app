@@ -22,7 +22,7 @@ class ProductRepository {
 
   }
 
-  async findAll({ limit, offset }) {
+  async findAll({ limit, offset, categoryId = null }) {
 
     const sql = `
       SELECT
@@ -56,13 +56,14 @@ class ProductRepository {
       ON c.id = p.category_id
 
       WHERE p.deleted_at IS NULL
+      AND ($3::uuid IS NULL OR p.category_id = $3)
 
       ORDER BY p.created_at DESC
 
       LIMIT $1 OFFSET $2
     `;
 
-    const { rows } = await db.query(sql, [limit, offset]);
+    const { rows } = await db.query(sql, [limit, offset, categoryId]);
 
     return rows;
   }
@@ -87,10 +88,16 @@ class ProductRepository {
     return rows[0];
   }
 
-  async count() {
+  async count({ categoryId = null } = {}) {
 
     const { rows } = await db.query(
-        `SELECT COUNT(*)::int as count FROM products WHERE deleted_at IS NULL`
+        `
+      SELECT COUNT(*)::int as count
+      FROM products
+      WHERE deleted_at IS NULL
+      AND ($1::uuid IS NULL OR category_id = $1)
+      `,
+        [categoryId],
     );
 
     return rows[0].count;

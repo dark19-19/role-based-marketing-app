@@ -28,9 +28,9 @@ class ProductController {
 
     try {
 
-      const { page, limit } = req.query;
+      const { page, limit, category_id } = req.query;
 
-      const result = await productService.listProducts({ page, limit });
+      const result = await productService.listProducts({ page, limit, category_id });
 
       res.json({
         success: true,

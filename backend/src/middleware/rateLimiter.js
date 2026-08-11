@@ -1,42 +1,63 @@
-// const rateLimit = require('express-rate-limit');
-//
-// const limiter = rateLimit({
-//   windowMs: 60 * 1000,
-//   max: 5000, // Explicitly bump this up to a massive ceiling for stress testing
-//   standardHeaders: true,
-//   legacyHeaders: false,
-//
-//   // Hard-override the key generator to ignore standard req.ip
-//   keyGenerator: (req, res) => {
-//     return req.clientIp // IP address from requestIp.mw(), as opposed to req.ip
-//   },
-//   message : "نواجه الكثير من الطلبات , الرجاء التمهل و المحاولة بعد بضع لحظات - 429"
-// });
-//
-// module.exports = limiter;
-
-
 const rateLimit = require('express-rate-limit');
+
+// Enhanced IP extraction function
+function getClientIp(req) {
+  // Debug logging
+  console.log('\n--- DEBUG INCOMING REQUEST ---');
+  
+  // 1. Check for Cloudflare's direct client header
+  if (req.headers['cf-connecting-ip']) {
+    const ip = req.headers['cf-connecting-ip'];
+    console.log(`Using CF-Connecting-IP: ${ip}`);
+    return ip;
+  }
+  
+  // 2. Check X-Forwarded-For and grab the FIRST IP (actual client)
+  if (req.headers['x-forwarded-for']) {
+    const forwardedIps = req.headers['x-forwarded-for'].split(',');
+    const clientIp = forwardedIps[0].trim();
+    
+    console.log(`X-Forwarded-For header: ${req.headers['x-forwarded-for']}`);
+    console.log(`Extracted client IP (first in chain): ${clientIp}`);
+    console.log(`Full proxy chain: ${forwardedIps.map(ip => ip.trim()).join(' → ')}`);
+    
+    return clientIp;
+  }
+  
+  // 3. Check X-Real-IP header
+  if (req.headers['x-real-ip']) {
+    const ip = req.headers['x-real-ip'];
+    console.log(`Using X-Real-IP: ${ip}`);
+    return ip;
+  }
+  
+  // 4. Fallback to req.ip or socket address
+  const ip = req.ip || req.socket.remoteAddress;
+  console.log(`Using fallback IP: ${ip}`);
+  return ip;
+}
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 5000, // Explicitly bump this up to a massive ceiling for stress testing
+  max: 5000,
   standardHeaders: true,
   legacyHeaders: false,
-  message : "نواجه الكثير من الطلبات , الرجاء التمهل و المحاولة بعد بضع لحظات - 429",
-
-  // Hard-override the key generator to ignore standard req.ip
-  keyGenerator: (req) => {
-    // 1. Check for Cloudflare's direct client header (used by Railway's edge)
-    if (req.headers['cf-connecting-ip']) {
-      return req.headers['cf-connecting-ip'];
+  message: "نواجه الكثير من الطلبات , الرجاء التمهل و المحاولة بعد بضع لحظات - 429",
+  
+  keyGenerator: (req, res) => {
+    // Override req.ip with the real client IP
+    const clientIp = getClientIp(req);
+    
+    // Check if we need to normalize IPv6
+    if (clientIp.includes(':')) {
+      console.log(`IPv6 detected: ${clientIp}`);
+      // Use the built-in helper for IPv6
+      return rateLimit.ipKeyGenerator({ ...req, ip: clientIp }, res);
     }
-    // 2. Check X-Forwarded-For and grab the very first IP in the comma-separated chain
-    if (req.headers['x-forwarded-for']) {
-      return req.headers['x-forwarded-for'].split(',')[0].trim();
-    }
-    // 3. Fallback to standard IP tracking
-    return req.ip || req.socket.remoteAddress;
+    
+    console.log(`Rate limiting IP: ${clientIp}`);
+    console.log('--- END DEBUG ---\n');
+    return clientIp;
   }
 });
 
