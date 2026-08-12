@@ -38,13 +38,13 @@ app.use("/uploads", express.static(uploadsDir));
 app.use(cors());
 app.use(express.json());
 
-app.use((req, res, next) => {
-  console.log(`--- DEBUG INCOMING REQUEST ---`);
-  console.log(`req.ip evaluated as: ${req.ip}`);
-  console.log(`CF-Connecting-IP header: ${req.headers['cf-connecting-ip']}`);
-  console.log(`X-Forwarded-For header: ${req.headers['x-forwarded-for']}`);
-  next();
-});
+// app.use((req, res, next) => {
+//   console.log(`--- DEBUG INCOMING REQUEST ---`);
+//   console.log(`req.ip evaluated as: ${req.ip}`);
+//   console.log(`CF-Connecting-IP header: ${req.headers['cf-connecting-ip']}`);
+//   console.log(`X-Forwarded-For header: ${req.headers['x-forwarded-for']}`);
+//   next();
+// });
 
 if (process.env.NODE_ENV !== "development") {
   app.use(rateLimiter);
