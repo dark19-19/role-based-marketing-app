@@ -40,5 +40,9 @@ router.use('/api', couponRoutes);
 router.use('/api', cleanupRoutes);
 router.use('/api/stats', statsRoutes);
 
+// API liveness probe — goes through the same middleware/api stack as all
+// other /api routes, so it reflects real API health (e.g. a 5xx middleware
+// or load-shedding affects it too).
+router.use('/api/health', (_req, res) => res.json({ ok: true }));
 
 module.exports = router;
